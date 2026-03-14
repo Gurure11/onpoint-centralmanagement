@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Onpoint Group · Central Management Platform</title>
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Custom animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        .animate-slideIn {
+            animation: slideIn 0.8s ease-out forwards;
+        }
+        
+        .gradient-blue {
+            background: linear-gradient(135deg, #1e4b8c 0%, #3b82f6 50%, #1e4b8c 100%);
+            background-size: 200% 200%;
+            animation: gradientFlow 8s ease infinite;
+        }
+        
+        .gradient-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f0f7ff 100%);
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .hero-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            overflow: hidden;
+            line-height: 0;
+            transform: rotate(180deg);
+        }
+        
+        .hero-wave svg {
+            position: relative;
+            display: block;
+            width: calc(100% + 1.3px);
+            height: 80px;
+        }
+        
+        .hero-wave .shape-fill {
+            fill: #FFFFFF;
+        }
+        
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 30px 45px -15px rgba(30, 75, 140, 0.3);
+        }
+        
+        .floating-characters {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .character {
+            position: absolute;
+            opacity: 0.1;
+            font-size: 3rem;
+            animation: float 8s ease-in-out infinite;
+        }
+        
+        .character-1 { top: 10%; left: 5%; animation-delay: 0s; }
+        .character-2 { bottom: 15%; right: 5%; animation-delay: 2s; }
+        .character-3 { top: 30%; right: 10%; animation-delay: 4s; }
+        .character-4 { bottom: 25%; left: 8%; animation-delay: 1s; }
+        .character-5 { top: 60%; left: 15%; animation-delay: 3s; }
+        .character-6 { bottom: 40%; right: 12%; animation-delay: 5s; }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #1e4b8c 0%, #3b82f6 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 20px -5px rgba(30, 75, 140, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 30px -5px rgba(30, 75, 140, 0.4);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: #1e4b8c;
+            padding: 0.75rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            border: 2px solid #1e4b8c;
+            cursor: pointer;
+        }
+        
+        .btn-outline:hover {
+            background: #1e4b8c;
+            color: white;
+        }
+        
+        .report-card {
+            background: white;
+            border-radius: 30px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(5px);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .report-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #1e4b8c, #3b82f6, #60a5fa);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        
+        .report-card:hover::before {
+            transform: translateX(0);
+        }
+        
+        .card-icon {
+            font-size: 2.5rem;
+            color: #1e4b8c;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #e6f0ff, #ffffff);
+            width: fit-content;
+            padding: 1rem;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(30, 75, 140, 0.1);
+        }
+        
+        .footer-link {
+            color: #94a3b8;
+            transition: color 0.3s ease;
+            text-decoration: none;
+        }
+        
+        .footer-link:hover {
+            color: #1e4b8c;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.5rem;
+            }
+            
+            .character {
+                font-size: 2rem;
+            }
+            
+            .report-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-white to-blue-50 min-h-screen">
+
+    <!-- Floating Background Characters -->
+    <div class="floating-characters">
+        <div class="character character-1"><i class="fas fa-chart-line"></i></div>
+        <div class="character character-2"><i class="fas fa-chart-pie"></i></div>
+        <div class="character character-3"><i class="fas fa-chart-bar"></i></div>
+        <div class="character character-4"><i class="fas fa-truck"></i></div>
+        <div class="character character-5"><i class="fas fa-users"></i></div>
+        <div class="character character-6"><i class="fas fa-project-diagram"></i></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-blue-100">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <img src="logo.png" alt="Onpoint Group" class="h-12 w-auto" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2245%22%20fill%3D%22%231e4b8c%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2268%22%20font-size%3D%2240%22%20text-anchor%3D%22middle%22%20fill%3D%22%23ffffff%22%20font-family%3D%22Arial%22%20font-weight%3D%22bold%22%3EOG%3C%2Ftext%3E%3C%2Fsvg%3E');">
+                    <span class="text-xl font-bold text-gray-800 hidden sm:block">Onpoint Group</span>
+                </div>
+
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex items-center gap-2">
+                    <a href="#reports" class="px-4 py-2 text-gray-600 hover:text-[#1e4b8c] transition">Reports</a>
+                    <a href="#analytics" class="px-4 py-2 text-gray-600 hover:text-[#1e4b8c] transition">Analytics</a>
+                    <a href="#about" class="px-4 py-2 text-gray-600 hover:text-[#1e4b8c] transition">About</a>
+                    <button class="btn-primary ml-4">
+                        <i class="fas fa-user-circle"></i>
+                        <span>Login</span>
+                    </button>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <button class="md:hidden text-2xl text-[#1e4b8c]" onclick="toggleMobileMenu()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobileMenu" class="hidden md:hidden bg-white border-t border-blue-100 py-4">
+            <div class="container mx-auto px-4 flex flex-col gap-3">
+                <a href="#reports" class="py-2 text-gray-600 hover:text-[#1e4b8c]" onclick="toggleMobileMenu()">Reports</a>
+                <a href="#analytics" class="py-2 text-gray-600 hover:text-[#1e4b8c]" onclick="toggleMobileMenu()">Analytics</a>
+                <a href="#about" class="py-2 text-gray-600 hover:text-[#1e4b8c]" onclick="toggleMobileMenu()">About</a>
+                <button class="btn-primary w-full justify-center">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Login</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section with Video Background -->
+    <section class="relative overflow-hidden bg-gradient-to-r from-[#1e4b8c] to-[#3b82f6] text-white">
+        <!-- Video Background (using free Pexels video) -->
+        <div class="absolute inset-0 opacity-30">
+            <video autoplay muted loop playsinline class="w-full h-full object-cover">
+                <source src="https://videos.pexels.com/video-files/3255959/3255959-uhd_3840_2160_25fps.mp4" type="video/mp4">
+                <!-- Fallback image if video doesn't load -->
+            </video>
+        </div>
+        
+        <!-- Animated gradient overlay -->
+        <div class="absolute inset-0 bg-gradient-to-r from-[#1e4b8c]/90 to-[#3b82f6]/90 mix-blend-multiply"></div>
+        
+        <!-- Wave divider -->
+        <div class="hero-wave">
+            <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="shape-fill"></path>
+            </svg>
+        </div>
+
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 relative z-10">
+            <div class="max-w-4xl mx-auto text-center animate-slideIn">
+                <!-- Animated characters floating in hero -->
+                <div class="flex justify-center gap-4 mb-8 animate-float">
+                    <span class="text-5xl"><i class="fas fa-chart-line"></i></span>
+                    <span class="text-5xl"><i class="fas fa-chart-pie"></i></span>
+                    <span class="text-5xl"><i class="fas fa-truck"></i></span>
+                </div>
+                
+                <h1 class="hero-title text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
+                    Central Management
+                    <span class="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">
+                        Intelligence Platform
+                    </span>
+                </h1>
+                
+                <p class="text-xl md:text-2xl mb-10 text-blue-100 max-w-3xl mx-auto">
+                    Unified access to all Onpoint Group reporting tools. Real-time analytics, fleet management, and project tracking.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="#reports" class="btn-primary text-lg">
+                        <i class="fas fa-rocket"></i>
+                        Launch Reports
+                    </a>
+                    <a href="#demo" class="btn-outline text-white border-white hover:bg-white hover:text-[#1e4b8c] text-lg">
+                        <i class="fas fa-play-circle"></i>
+                        Watch Demo
+                    </a>
+                </div>
+                
+                <!-- Stats bar -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 pt-8 border-t border-white/20">
+                    <div class="text-center">
+                        <div class="text-3xl font-bold">50+</div>
+                        <div class="text-sm text-blue-200">Active Projects</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold">R 2.5B</div>
+                        <div class="text-sm text-blue-200">Portfolio Value</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold">24/7</div>
+                        <div class="text-sm text-blue-200">Real-time Data</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold">100%</div>
+                        <div class="text-sm text-blue-200">Mobile Ready</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reports Section -->
+    <section id="reports" class="py-20 bg-gradient-to-b from-white to-blue-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Section Header -->
+            <div class="text-center mb-16">
+                <span class="text-[#1e4b8c] font-semibold text-sm uppercase tracking-wider">Access Points</span>
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mt-2 mb-4">Report Portals</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                    Click any card to access the dedicated reporting dashboard
+                </p>
+            </div>
+
+            <!-- Reports Grid - 6 Cards in 3x2 layout on desktop, stacked on mobile -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <!-- Card 1: Project Management Reports Analysis -->
+                <a href="https://gurure11.github.io/projects-dashboard/dashboard.html" target="_blank" rel="noopener noreferrer" class="report-card card-hover group">
+                    <div class="card-icon group-hover:scale-110 transition-transform">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">Project Management</h3>
+                    <p class="text-gray-600 mb-6 flex-grow">Complete project analytics, KPI tracking, budget vs actual, and performance metrics.</p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="text-sm text-[#1e4b8c] font-medium">Real-time data</span>
+                        <span class="text-[#1e4b8c] group-hover:translate-x-2 transition-transform">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Card 2: Projects Supervisors Reports Analysis -->
+                <a href="https://gurure11.github.io/projects-dashboard/managers.html" target="_blank" rel="noopener noreferrer" class="report-card card-hover group">
+                    <div class="card-icon group-hover:scale-110 transition-transform">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">Supervisors Reports</h3>
+                    <p class="text-gray-600 mb-6 flex-grow">Supervisor-specific dashboards with team performance, task completion, and oversight tools.</p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="text-sm text-[#1e4b8c] font-medium">Team analytics</span>
+                        <span class="text-[#1e4b8c] group-hover:translate-x-2 transition-transform">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Card 3: Distinct Fleet Reports -->
+                <a href="https://fleetonpointontime.online/" target="_blank" rel="noopener noreferrer" class="report-card card-hover group">
+                    <div class="card-icon group-hover:scale-110 transition-transform">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">Fleet Reports</h3>
+                    <p class="text-gray-600 mb-6 flex-grow">Fleet accident reports, driver logs, vehicle tracking, and safety compliance data.</p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="text-sm text-[#1e4b8c] font-medium">Live tracking</span>
+                        <span class="text-[#1e4b8c] group-hover:translate-x-2 transition-transform">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Card 4: Project Managers Daily Report -->
+                <a href="https://gurure11.github.io/onpoint-project-assessment/details.html" target="_blank" rel="noopener noreferrer" class="report-card card-hover group">
+                    <div class="card-icon group-hover:scale-110 transition-transform">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">Managers Daily Report</h3>
+                    <p class="text-gray-600 mb-6 flex-grow">Daily performance tracking, income/expense reporting, and variance analysis for managers.</p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="text-sm text-[#1e4b8c] font-medium">Daily updates</span>
+                        <span class="text-[#1e4b8c] group-hover:translate-x-2 transition-transform">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Card 5: Supervisors Daily Report -->
+                <a href="https://gurure11.github.io/project-trackOnpoint/dashboard.html" target="_blank" rel="noopener noreferrer" class="report-card card-hover group">
+                    <div class="card-icon group-hover:scale-110 transition-transform">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">Supervisors Daily Report</h3>
+                    <p class="text-gray-600 mb-6 flex-grow">Project registration, daily progress tracking, timeline management, and risk assessment.</p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="text-sm text-[#1e4b8c] font-medium">Progress tracking</span>
+                        <span class="text-[#1e4b8c] group-hover:translate-x-2 transition-transform">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Card 6: Analytics Hub (bonus) -->
+                <div class="report-card card-hover group bg-gradient-to-br from-[#1e4b8c] to-[#3b82f6] text-white">
+                    <div class="card-icon bg-white/20 text-white group-hover:scale-110 transition-transform">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">AI Analytics Hub</h3>
+                    <p class="text-blue-100 mb-6 flex-grow">Coming soon: AI-powered predictive analytics and automated reporting assistant.</p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="text-sm text-blue-200 font-medium">Preview</span>
+                        <span class="text-white group-hover:translate-x-2 transition-transform">
+                            <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features/Analytics Section -->
+    <section id="analytics" class="py-20 bg-white">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Integrated Analytics</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                    All your reporting tools unified in one central platform
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="text-center p-6">
+                    <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-slow">
+                        <i class="fas fa-chart-line text-3xl text-[#1e4b8c]"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Real-time Data</h3>
+                    <p class="text-gray-600">Live updates from all project sites and fleet operations</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-slow" style="animation-delay: 1s;">
+                        <i class="fas fa-mobile-alt text-3xl text-[#1e4b8c]"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Mobile Optimized</h3>
+                    <p class="text-gray-600">Access all reports seamlessly on any device</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-slow" style="animation-delay: 2s;">
+                        <i class="fas fa-shield-alt text-3xl text-[#1e4b8c]"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Secure Access</h3>
+                    <p class="text-gray-600">Enterprise-grade security with role-based permissions</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-300 pt-16 pb-8">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+                <div>
+                    <img src="logo.png" alt="Onpoint Group" class="h-12 w-auto mb-4 brightness-0 invert" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2245%22%20fill%3D%22%23ffffff%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2268%22%20font-size%3D%2240%22%20text-anchor%3D%22middle%22%20fill%3D%22%231e4b8c%22%20font-family%3D%22Arial%22%20font-weight%3D%22bold%22%3EOG%3C%2Ftext%3E%3C%2Fsvg%3E');">
+                    <p class="text-sm">Central Management Platform for all Onpoint Group reporting tools.</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Reports</h4>
+                    <ul class="space-y-2">
+                        <li><a href="https://gurure11.github.io/projects-dashboard/dashboard.html" class="footer-link">Project Management</a></li>
+                        <li><a href="https://gurure11.github.io/projects-dashboard/managers.html" class="footer-link">Supervisors Reports</a></li>
+                        <li><a href="https://fleetonpointontime.online/" class="footer-link">Fleet Reports</a></li>
+                        <li><a href="https://gurure11.github.io/onpoint-project-assessment/details.html" class="footer-link">Managers Daily</a></li>
+                        <li><a href="https://gurure11.github.io/project-trackOnpoint/dashboard.html" class="footer-link">Supervisors Daily</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Quick Links</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="footer-link">About Us</a></li>
+                        <li><a href="#" class="footer-link">Support</a></li>
+                        <li><a href="#" class="footer-link">Privacy Policy</a></li>
+                        <li><a href="#" class="footer-link">Terms of Use</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Connect</h4>
+                    <div class="flex gap-4">
+                        <a href="#" class="text-2xl hover:text-white transition"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" class="text-2xl hover:text-white transition"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-2xl hover:text-white transition"><i class="fab fa-github"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 text-center text-sm">
+                <p>&copy; 2026 Onpoint Group. All rights reserved. | Central Management Platform v2.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('#mobileMenu a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('mobileMenu').classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>

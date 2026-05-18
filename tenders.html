@@ -11,7 +11,7 @@
       --text: #0f172a;
       --muted: #64748b;
       --line: #e2e8f0;
-      --primary: #14b8a6;
+      --primary: #0f766e;
       --warn-bg: #fffbeb;
       --warn-border: #fde68a;
       --warn-text: #92400e;
@@ -94,6 +94,17 @@
     .variance-positive { color: #166534; font-weight: 800; }
     .variance-negative { color: #b91c1c; font-weight: 800; }
     .variance-neutral { color: #334155; font-weight: 800; }
+
+    .progress-stack { display: grid; gap: 12px; margin-top: 12px; }
+    .progress-item { display: grid; gap: 6px; }
+    .progress-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .progress-track { width: 100%; height: 12px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; background: var(--primary); min-width: 0; }
+    .progress-fill.value { background: #1d4ed8; }
+    .progress-fill.time { background: #f59e0b; }
+    .dashboard-detail-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
+    .total-row td { font-weight: 800; background: #f8fafc; }
+
     @media (max-width: 1100px) {
       .kpi-grid, .grid-2, .grid-3, .form-grid { grid-template-columns: 1fr 1fr; }
       .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -136,7 +147,7 @@
       <div class="field">
         <label for="dashboardPeriodFilter">Dashboard Period Filter</label>
         <select id="dashboardPeriodFilter">
-          <option value="ALL">Full Financial Year</option>
+          <option value="ALL">YTD TOTAL NUMBER OF AWARDS</option>
           <option value="CURRENT">This Month</option>
           <option value="Q1">Q1 (Mar - May)</option>
           <option value="Q2">Q2 (Jun - Aug)</option>
@@ -151,7 +162,7 @@
           <option value="Q1">Q1 Cumulative Target</option>
           <option value="Q2">Q2 Cumulative Target</option>
           <option value="Q3">Q3 Cumulative Target</option>
-          <option value="Q4">Q4 Cumulative Target</option>
+          <option value="Q4">Q4 Total Target</option>
         </select>
       </div>
       <div class="small-note" id="periodFilterNote">Financial year begins in March. Select a quarter to show only that period.</div>
@@ -170,12 +181,22 @@
 
     <section id="dashboard" class="tab-panel active">
       <div class="card">
-        <h2 class="section-title" id="periodSummaryTitle">Summary</h2>
+        <h2 class="section-title" id="periodSummaryTitle">Group Summary</h2>
         <div class="period-summary-grid" id="periodSummaryGrid"></div>
+        <div class="dashboard-detail-grid">
+          <div>
+            <h2 class="section-title">Summary by Entity</h2>
+            <div id="dashboardEntitySummaryTable"></div>
+          </div>
+          <div>
+            <h2 class="section-title">YTD Figures by Entity</h2>
+            <div id="dashboardYtdEntityTable"></div>
+          </div>
+        </div>
       </div>
       <div class="grid-3" style="margin-top: 16px;">
-        <div class="card"><h2 class="section-title">Quarterly Figures by Scope</h2><div id="quarterlyScopeSummaryTable"></div></div>
-        <div class="card"><h2 class="section-title">Quarterly Figures by Entity / Awards</h2><div id="quarterlyEntityAwardSummaryTable"></div><div class="chart-wrap" style="margin-top: 16px;"><canvas id="quarterlyEntityAwardChart"></canvas></div></div>
+        <div class="card"><h2 class="section-title">GROUP YTD VALUE OF WORK AWARDED BY SCOPE</h2><div id="quarterlyScopeSummaryTable"></div></div>
+        <div class="card"><h2 class="section-title">YTD TOTAL AWARDS</h2><div id="quarterlyEntityAwardSummaryTable"></div></div>
       </div>
 
       <div class="matrix-wrap" id="entityMatrixContainer"></div>
@@ -185,8 +206,12 @@
         <div class="card"><h2 class="section-title">Direct Contracts by Scope: Actual vs Target</h2><div class="chart-wrap"><canvas id="scopePieChart"></canvas></div></div>
       </div>
       <div class="grid-2" style="margin-top: 16px;">
-        <div class="card"><h2 class="section-title">Value of Direct Contracts by Entity</h2><div class="chart-wrap"><canvas id="entityValueChart"></canvas></div></div>
+        <div class="card"><h2 class="section-title">Executive Awards Detail</h2><div class="chart-wrap"><canvas id="entityValueChart"></canvas></div></div>
         <div class="card"><h2 class="section-title">Private Sector Awards</h2><div class="chart-wrap"><canvas id="privateSectorChart"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top: 16px;">
+        <h2 class="section-title">Tendering Strategy</h2>
+        <div id="tenderingStrategyTable"></div>
       </div>
       <div class="card" style="margin-top: 16px;">
         <h2 class="section-title">Executive Awards Detail</h2>
@@ -283,12 +308,20 @@
     var selectedPeriod = "ALL";
     var selectedTargetQuarter = "ALL";
     var FIXED_ANNUAL_AWARD_TARGETS = { "On Point": 50, "Aqua Telecoms": 30, "Nkanyezi": 24, "Distinct": 10 };
-    var ENTITIES = ["On Point", "Nkanyezi", "Aqua Telecoms", "Distinct"];
+    var ENTITIES = ["On Point", "Nkanyezi", "Aqua Telecoms", "Distinct", "Aquatech", "Advantedge"];
     var SCOPES = ["Civils", "Roads", "Building", "Electrical", "Telecoms", "Mechanical", "Plant Hire"];
     var DIRECT_SCOPE_TARGETS = { "Civils": 105000000, "Roads": 106000000, "Building": 105000000, "Electrical": 202000000, "Telecoms": 75000000, "Mechanical": 100000000, "Plant Hire": 10000000 };
     var DIRECT_CONTRACT_TARGET_TOTAL = 703000000;
-    var CUMULATIVE_QUARTER_AWARD_TARGETS = { Q1: 28.5, Q2: 57, Q3: 85.5, Q4: 114 };
     var CUMULATIVE_QUARTER_VALUE_TARGETS = { Q1: 175750000, Q2: 351500000, Q3: 527250000, Q4: 703000000 };
+    var TENDERING_STRATEGY_TARGETS = [
+      { scope: "Civils", onpoint: 95000000, aqua: 0, nkanyezi: 10000000, distinct: 0, total: 105000000 },
+      { scope: "Roads", onpoint: 90000000, aqua: 0, nkanyezi: 10000000, distinct: 6000000, total: 106000000 },
+      { scope: "Building", onpoint: 100000000, aqua: 0, nkanyezi: 5000000, distinct: 0, total: 105000000 },
+      { scope: "Electrical", onpoint: 95000000, aqua: 100000000, nkanyezi: 5000000, distinct: 2000000, total: 202000000 },
+      { scope: "Telecoms", onpoint: 0, aqua: 75000000, nkanyezi: 0, distinct: 0, total: 75000000 },
+      { scope: "Mechanical", onpoint: 100000000, aqua: 0, nkanyezi: 0, distinct: 0, total: 100000000 },
+      { scope: "Plant Hire", onpoint: 0, aqua: 0, nkanyezi: 0, distinct: 10000000, total: 10000000 }
+    ];
     var SHEET_TABS = [
       { tab: "Tendering", headline: "Tendering Dashboard Overview & KPIs" },
       { tab: "Tender_Summary", headline: "Summary of Tenders, RFQs and Awards by Entity" },
@@ -311,7 +344,9 @@
         { entity: "On Point", tenders: { MAR: 11, APR: 17 }, rfqs: { MAR: 20, APR: 8 }, awards: { MAR: 2, APR: 2 } },
         { entity: "Nkanyezi", tenders: { MAR: 8, APR: 12 }, rfqs: { MAR: 28, APR: 2 }, awards: { MAR: 1, APR: 1 } },
         { entity: "Aqua Telecoms", tenders: { MAR: 5, APR: 11 }, rfqs: { MAR: 3, APR: 1 }, awards: { MAR: 0, APR: 0 } },
-        { entity: "Distinct", tenders: { MAR: 3, APR: 4 }, rfqs: { MAR: 2, APR: 1 }, awards: { MAR: 0, APR: 0 } }
+        { entity: "Distinct", tenders: { MAR: 3, APR: 4 }, rfqs: { MAR: 2, APR: 1 }, awards: { MAR: 0, APR: 0 } },
+        { entity: "Aquatech", tenders: {}, rfqs: {}, awards: {} },
+        { entity: "Advantedge", tenders: {}, rfqs: {}, awards: {} }
       ],
       awardsTargets: [
         { entity: "On Point", target: 50, actual: 4 },
@@ -373,6 +408,42 @@
       return ((Number(actual || 0) / Number(target || 0)) * 100).toFixed(2) + '%';
     }
 
+    function progressPercent(actual, target) {
+      if (!target) return 0;
+      return Math.max(0, Math.min(100, (Number(actual || 0) / Number(target || 0)) * 100));
+    }
+
+    function progressBar(label, actualText, actual, target, fillClass) {
+      var pct = progressPercent(actual, target);
+      return '<div class="progress-item">' +
+        '<div class="progress-meta"><span>' + label + '</span><span>' + actualText + ' | ' + pct.toFixed(2) + '%</span></div>' +
+        '<div class="progress-track"><div class="progress-fill ' + (fillClass || '') + '" style="width:' + pct + '%"></div></div>' +
+      '</div>';
+    }
+
+    function financialYearStartDate() {
+      var today = new Date();
+      var year = today.getMonth() >= 2 ? today.getFullYear() : today.getFullYear() - 1;
+      return new Date(year, 2, 1);
+    }
+
+    function financialMonthDate(monthName, endOfMonth) {
+      var fyStart = financialYearStartDate();
+      var idx = MONTHS.indexOf(monthName);
+      var date = new Date(fyStart.getFullYear(), 2 + idx, endOfMonth ? 0 : 1);
+      if (endOfMonth) date = new Date(fyStart.getFullYear(), 3 + idx, 0);
+      return date;
+    }
+
+    function elapsedRatioForMonths(months) {
+      var today = new Date();
+      var start = financialMonthDate(months[0], false);
+      var end = financialMonthDate(months[months.length - 1], true);
+      if (today <= start) return 0;
+      if (today >= end) return 1;
+      return (today - start) / (end - start);
+    }
+
     function totalRow(rows, actualKey, targetKey) {
       var aKey = actualKey || 'actual';
       var tKey = targetKey || 'target';
@@ -410,18 +481,6 @@
       if (cleaned === 'aquatech') return 'Aquatech';
       if (cleaned === 'advantedge') return 'Advantedge';
       return String(name || '').trim() || 'Unknown';
-    }
-
-    function isVisibleEntity(entity) {
-      return ENTITIES.indexOf(normalizeEntityName(entity)) > -1;
-    }
-
-    function filterVisibleEntities(rows, entityGetter) {
-      var output = [];
-      for (var i = 0; i < rows.length; i++) {
-        if (isVisibleEntity(entityGetter(rows[i]))) output.push(rows[i]);
-      }
-      return output;
     }
 
     function normalizeMonthName(month) {
@@ -488,7 +547,20 @@
           rows.push(data.awardsDetail[i]);
         }
       }
-      return rows;
+
+      var seen = {};
+      var deduped = [];
+      for (var r = 0; r < rows.length; r++) {
+        var entity = normalizeEntityName(getCellValue(rows[r], ['Entity', 'entity', 'CostCenter', 'Cost Center', 'costCenter', 'Cost_Center']));
+        var month = normalizeMonthName(getCellValue(rows[r], ['Month', 'month', 'MONTH']));
+        var value = Number(String(getCellValue(rows[r], ['Value', 'value', 'Actual', 'actual', 'Amount', 'amount'])).replace(/[^0-9.-]/g, '') || 0).toFixed(2);
+        var ref = String(getCellValue(rows[r], ['TenderRef', 'Tender Ref', 'tenderRef', 'Reference', 'reference', 'Description', 'description']) || '').trim().toLowerCase();
+        var key = entity + '|' + month + '|' + value + '|' + ref;
+        if (seen[key]) continue;
+        seen[key] = true;
+        deduped.push(rows[r]);
+      }
+      return deduped;
     }
 
     function getContractEntity(row) {
@@ -597,7 +669,7 @@
 
     function getPeriodLabel() {
       if (selectedPeriod === 'CURRENT') return 'This Month (' + getCurrentFinancialMonth() + ')';
-      if (selectedPeriod === 'ALL') return 'Full Financial Year';
+      if (selectedPeriod === 'ALL') return 'YTD TOTAL NUMBER OF AWARDS';
       return selectedPeriod + ' (' + QUARTERS[selectedPeriod].join(', ') + ')';
     }
 
@@ -620,6 +692,19 @@
       var variancePct = target ? (variance / Number(target || 0)) * 100 : 0;
       var cls = variance > 0 ? 'variance-positive' : (variance < 0 ? 'variance-negative' : 'variance-neutral');
       return '<span class="' + cls + '">' + currency(variance) + ' / ' + variancePct.toFixed(2) + '%</span>';
+    }
+
+    function strategyTargetForScope(scope) {
+      var wanted = normalizeScopeName(scope);
+      for (var i = 0; i < TENDERING_STRATEGY_TARGETS.length; i++) {
+        if (normalizeScopeName(TENDERING_STRATEGY_TARGETS[i].scope) === wanted) return Number(TENDERING_STRATEGY_TARGETS[i].total || 0);
+      }
+      return Number(DIRECT_SCOPE_TARGETS[wanted] || 0);
+    }
+
+    function getContractGraphTarget(row) {
+      var strategyTarget = strategyTargetForScope(getContractScope(row));
+      return strategyTarget || getContractTarget(row);
     }
 
     function normalizeScopeName(scope) {
@@ -729,19 +814,19 @@
     }
 
     function getQuarterAwardsByEntity(q) {
-      var months = getQuarterWindowMonths(q);
+      var months = getCumulativeQuarterMonths(q);
       var map = {};
       for (var i = 0; i < ENTITIES.length; i++) {
         var entityName = ENTITIES[i];
         var annualTarget = annualAwardsTargetForEntity(entityName);
-        map[entityName] = { entity: entityName, awards: 0, value: 0, annualTarget: annualTarget, target: annualTarget / 4 };
+        map[entityName] = { entity: entityName, awards: 0, value: 0, annualTarget: annualTarget, target: annualTarget * (months.length / 12) };
       }
 
       for (var a = 0; a < data.awardsTargets.length; a++) {
         var awardEntity = getAwardEntity(data.awardsTargets[a]);
         if (!map[awardEntity]) {
           var extraTarget = annualAwardsTargetForEntity(awardEntity);
-          map[awardEntity] = { entity: awardEntity, awards: 0, value: 0, annualTarget: extraTarget, target: extraTarget / 4 };
+          map[awardEntity] = { entity: awardEntity, awards: 0, value: 0, annualTarget: extraTarget, target: extraTarget * (months.length / 12) };
         }
         var awardMonth = getAwardMonth(data.awardsTargets[a]);
         if (!awardMonth || months.indexOf(awardMonth) > -1) map[awardEntity].awards += getAwardActual(data.awardsTargets[a]);
@@ -754,52 +839,48 @@
         var contractEntity = getContractEntity(rows[r]);
         if (!map[contractEntity]) {
           var contractTarget = annualAwardsTargetForEntity(contractEntity);
-          map[contractEntity] = { entity: contractEntity, awards: 0, value: 0, annualTarget: contractTarget, target: contractTarget / 4 };
+          map[contractEntity] = { entity: contractEntity, awards: 0, value: 0, annualTarget: contractTarget, target: contractTarget * (months.length / 12) };
         }
         map[contractEntity].value += getContractValue(rows[r]);
       }
       return Object.keys(map).map(function(k) { return map[k]; });
     }
 
-    function getCumulativeQuarterAwardsByEntity(q) {
+    function getQuarterValueTargetByEntity(q) {
       var months = getCumulativeQuarterMonths(q);
-      var map = {};
-      for (var i = 0; i < ENTITIES.length; i++) {
-        var entityName = ENTITIES[i];
-        var annualTarget = annualAwardsTargetForEntity(entityName);
-        map[entityName] = { entity: entityName, awards: 0, value: 0, annualTarget: annualTarget, target: annualTarget * (months.length / 12) };
+      var fraction = months.length / 12;
+      var targets = {};
+      for (var i = 0; i < data.directContractsByEntity.length; i++) {
+        targets[normalizeEntityName(data.directContractsByEntity[i].entity)] = Number(data.directContractsByEntity[i].target || 0) * fraction;
       }
-
-      for (var a = 0; a < data.awardsTargets.length; a++) {
-        var awardEntity = getAwardEntity(data.awardsTargets[a]);
-        if (!isVisibleEntity(awardEntity)) continue;
-        var awardMonth = getAwardMonth(data.awardsTargets[a]);
-        if (!awardMonth || months.indexOf(awardMonth) > -1) map[awardEntity].awards += getAwardActual(data.awardsTargets[a]);
-      }
-
-      var rows = getDirectContractsRows();
-      for (var r = 0; r < rows.length; r++) {
-        var contractEntity = getContractEntity(rows[r]);
-        if (!isVisibleEntity(contractEntity)) continue;
-        var contractMonth = getContractMonth(rows[r]);
-        if (months.indexOf(contractMonth) === -1) continue;
-        map[contractEntity].value += getContractValue(rows[r]);
-      }
-      return Object.keys(map).map(function(k) { return map[k]; });
+      return targets;
     }
 
     function renderQuarterWindowCard(q) {
-      var rows = getCumulativeQuarterAwardsByEntity(q);
-      var awards = 0, value = 0;
+      var rows = getQuarterAwardsByEntity(q);
+      var valueTargets = getQuarterValueTargetByEntity(q);
+      var awards = 0, awardTarget = 0, value = 0, valueTarget = Number(CUMULATIVE_QUARTER_VALUE_TARGETS[q] || 0);
+      var entityLines = [];
       for (var i = 0; i < rows.length; i++) {
         awards += Number(rows[i].awards || 0);
+        awardTarget += Number(rows[i].target || 0);
         value += Number(rows[i].value || 0);
+        var entityTarget = Number(valueTargets[normalizeEntityName(rows[i].entity)] || 0);
+        if (entityTarget || Number(rows[i].value || 0)) {
+          entityLines.push(rows[i].entity + ' ' + currency(rows[i].value) + ' vs Target ' + currency(entityTarget));
+        }
       }
-      var target = CUMULATIVE_QUARTER_AWARD_TARGETS[q] || 0;
-      var targetValue = CUMULATIVE_QUARTER_VALUE_TARGETS[q] || 0;
-      return '<div class="summary-card"><div class="label">' + q + ' Cumulative (' + getCumulativeQuarterMonths(q).join(', ') + ')</div>' +
-        '<div class="value">' + integer(awards) + ' vs target ' + integer(target) + '</div>' +
-        '<div class="sub">Performance: ' + percent(awards, target) + ' | Award value: ' + currency(value) + '<br>On target value: ' + currency(targetValue) + '</div></div>';
+      var months = getCumulativeQuarterMonths(q);
+      var timePct = elapsedRatioForMonths(months) * 100;
+      return '<div class="summary-card"><div class="label">' + q + ' Cumulative (' + months.join(', ') + ')</div>' +
+        '<div class="value">' + integer(awards) + ' vs target ' + integer(awardTarget) + '</div>' +
+        '<div class="sub">Award value: ' + currency(value) + ' vs target ' + currency(valueTarget) + '</div>' +
+        '<div class="sub">' + entityLines.join('<br>') + '</div>' +
+        '<div class="progress-stack">' +
+          progressBar('Awards actual vs target', integer(awards) + ' / ' + integer(awardTarget), awards, awardTarget, '') +
+          progressBar('Value actual vs target', currency(value) + ' / ' + currency(valueTarget), value, valueTarget, 'value') +
+          progressBar('Time lapse', timePct.toFixed(2) + '% elapsed', timePct, 100, 'time') +
+        '</div></div>';
     }
 
     function getFinancialMonthsToDate() {
@@ -844,36 +925,194 @@
     }
 
     function renderPeriodSummary() {
-      document.getElementById('periodSummaryTitle').textContent = 'Summary';
+      document.getElementById('periodSummaryTitle').textContent = 'Quarterly Group Summary';
       var quartersToShow = selectedTargetQuarter === 'ALL' ? ['Q1', 'Q2', 'Q3', 'Q4'] : [selectedTargetQuarter];
-      var html = renderGroupAwardsToDateCard();
+      var html = '';
       for (var q = 0; q < quartersToShow.length; q++) html += renderQuarterWindowCard(quartersToShow[q]);
       document.getElementById('periodSummaryGrid').innerHTML = html;
     }
 
+
+    function getValueTargetForEntity(entity, monthCount) {
+      var wanted = normalizeEntityName(entity);
+      var annual = 0;
+      for (var i = 0; i < data.directContractsByEntity.length; i++) {
+        if (normalizeEntityName(data.directContractsByEntity[i].entity) === wanted) {
+          annual = Number(data.directContractsByEntity[i].target || 0);
+          break;
+        }
+      }
+      return annual * (Number(monthCount || 0) / 12);
+    }
+
+    function renderDashboardEntitySummaryTables() {
+      var selectedMonths = getSelectedMonths();
+      var periodRows = getPeriodAwardsByEntity();
+      var summaryRows = [];
+      var totals = { awards: 0, awardTarget: 0, value: 0, valueTarget: 0 };
+      for (var i = 0; i < periodRows.length; i++) {
+        var row = periodRows[i];
+        var valueTarget = getValueTargetForEntity(row.entity, 12);
+        totals.awards += Number(row.awards || 0);
+        totals.awardTarget += Number(row.target || 0);
+        totals.value += Number(row.value || 0);
+        totals.valueTarget += Number(valueTarget || 0);
+        summaryRows.push([
+          row.entity,
+          integer(row.awards) + ' / ' + integer(row.target),
+          integer(Number(row.awards || 0) - Number(row.target || 0)),
+          percent(row.awards, row.target),
+          currency(row.value) + ' / ' + currency(valueTarget),
+          currency(Number(row.value || 0) - Number(valueTarget || 0)),
+          percent(row.value, valueTarget)
+        ]);
+      }
+      summaryRows.push({ className: 'total-row', cells: [
+        'TOTAL',
+        integer(totals.awards) + ' / ' + integer(totals.awardTarget),
+        integer(totals.awards - totals.awardTarget),
+        percent(totals.awards, totals.awardTarget),
+        currency(totals.value) + ' / ' + currency(totals.valueTarget),
+        currency(totals.value - totals.valueTarget),
+        percent(totals.value, totals.valueTarget)
+      ]});
+      renderTable('dashboardEntitySummaryTable', ['Cost Center', 'Awards Actual / Target', 'Awards Variance', 'Awards %', 'Value Actual / Target', 'Value Variance', 'Value %'], summaryRows);
+
+      var ytdMonths = getFinancialMonthsToDate();
+      var ytdMap = {};
+      for (var e = 0; e < ENTITIES.length; e++) {
+        ytdMap[ENTITIES[e]] = { entity: ENTITIES[e], awards: 0, awardTarget: annualAwardsTargetForEntity(ENTITIES[e]), value: 0, valueTarget: getValueTargetForEntity(ENTITIES[e], 12) };
+      }
+      for (var a = 0; a < data.awardsTargets.length; a++) {
+        var awardEntity = getAwardEntity(data.awardsTargets[a]);
+        var awardMonth = getAwardMonth(data.awardsTargets[a]);
+        if (!awardMonth || ytdMonths.indexOf(awardMonth) > -1) {
+          if (!ytdMap[awardEntity]) ytdMap[awardEntity] = { entity: awardEntity, awards: 0, awardTarget: annualAwardsTargetForEntity(awardEntity), value: 0, valueTarget: getValueTargetForEntity(awardEntity, 12) };
+          ytdMap[awardEntity].awards += getAwardActual(data.awardsTargets[a]);
+        }
+      }
+      var contracts = getDirectContractsRows();
+      for (var c = 0; c < contracts.length; c++) {
+        var contractMonth = getContractMonth(contracts[c]);
+        if (ytdMonths.indexOf(contractMonth) === -1) continue;
+        var contractEntity = getContractEntity(contracts[c]);
+        if (!ytdMap[contractEntity]) ytdMap[contractEntity] = { entity: contractEntity, awards: 0, awardTarget: annualAwardsTargetForEntity(contractEntity), value: 0, valueTarget: getValueTargetForEntity(contractEntity, 12) };
+        ytdMap[contractEntity].value += getContractValue(contracts[c]);
+      }
+      var ytdRows = [];
+      var ytdTotals = { awards: 0, awardTarget: 0, value: 0, valueTarget: 0 };
+      var keys = Object.keys(ytdMap).filter(function(name) { return annualAwardsTargetForEntity(name) > 0; });
+      keys.sort(function(a, b) { return ENTITIES.indexOf(a) - ENTITIES.indexOf(b); });
+      for (var k = 0; k < keys.length; k++) {
+        var y = ytdMap[keys[k]];
+        y.awardTarget = annualAwardsTargetForEntity(y.entity);
+        y.valueTarget = getValueTargetForEntity(y.entity, 12);
+        ytdTotals.awards += Number(y.awards || 0);
+        ytdTotals.awardTarget += Number(y.awardTarget || 0);
+        ytdTotals.value += Number(y.value || 0);
+        ytdTotals.valueTarget += Number(y.valueTarget || 0);
+        ytdRows.push([
+          y.entity,
+          integer(y.awards),
+          integer(y.awardTarget),
+          integer(Number(y.awards || 0) - Number(y.awardTarget || 0)),
+          percent(y.awards, y.awardTarget),
+          currency(y.value),
+          currency(y.valueTarget),
+          currency(Number(y.value || 0) - Number(y.valueTarget || 0)),
+          percent(y.value, y.valueTarget)
+        ]);
+      }
+      ytdRows.push({ className: 'total-row', cells: [
+        'TOTAL',
+        integer(ytdTotals.awards),
+        integer(ytdTotals.awardTarget),
+        integer(ytdTotals.awards - ytdTotals.awardTarget),
+        percent(ytdTotals.awards, ytdTotals.awardTarget),
+        currency(ytdTotals.value),
+        currency(ytdTotals.valueTarget),
+        currency(ytdTotals.value - ytdTotals.valueTarget),
+        percent(ytdTotals.value, ytdTotals.valueTarget)
+      ]});
+      renderTable('dashboardYtdEntityTable', ['Cost Center', 'Awards', 'Target', 'Variance', '%', 'Value', 'Target', 'Variance', '%'], ytdRows);
+    }
+
+    function renderTenderingStrategyTable() {
+      var rows = [];
+      var totals = { onpoint: 0, aqua: 0, nkanyezi: 0, distinct: 0, total: 0 };
+      for (var i = 0; i < TENDERING_STRATEGY_TARGETS.length; i++) {
+        var r = TENDERING_STRATEGY_TARGETS[i];
+        totals.onpoint += Number(r.onpoint || 0);
+        totals.aqua += Number(r.aqua || 0);
+        totals.nkanyezi += Number(r.nkanyezi || 0);
+        totals.distinct += Number(r.distinct || 0);
+        totals.total += Number(r.total || 0);
+        rows.push([
+          r.scope,
+          r.onpoint ? currency(r.onpoint) : '-',
+          r.aqua ? currency(r.aqua) : '-',
+          r.nkanyezi ? currency(r.nkanyezi) : '-',
+          r.distinct ? currency(r.distinct) : '-',
+          currency(r.total)
+        ]);
+      }
+      rows.push({ className: 'total-row', cells: [
+        'GROUP TOTAL',
+        currency(totals.onpoint),
+        currency(totals.aqua),
+        currency(totals.nkanyezi),
+        currency(totals.distinct),
+        currency(totals.total)
+      ]});
+      if (document.getElementById('tenderingStrategyTable')) {
+        renderTable('tenderingStrategyTable', ['SCOPE', 'ONPOINT', 'AQUATELECOMS', 'NKANYEZI', 'DISTINCT', 'TOTAL'], rows);
+      }
+    }
+
     function renderQuarterlySummaryTables() {
-      var scopeRows = getPeriodScopeRows().map(function(row) {
+      var scopeData = getPeriodScopeRows();
+      var scopeRows = scopeData.map(function(row) {
         return [row.scope, integer(row.awards), currency(row.actual), currency(row.target), varianceText(row.actual, row.target), percent(row.actual, row.target)];
       });
-      renderTable('quarterlyScopeSummaryTable', ['Scope', 'Awards', 'Actual', 'Target', 'Variance', '% Performance'], scopeRows);
+      var scopeTotals = { awards: 0, actual: 0, target: 0 };
+      for (var st = 0; st < scopeData.length; st++) {
+        scopeTotals.awards += Number(scopeData[st].awards || 0);
+        scopeTotals.actual += Number(scopeData[st].actual || 0);
+        scopeTotals.target += Number(scopeData[st].target || 0);
+      }
+      scopeRows.push({ className: 'total-row', cells: ['TOTAL', integer(scopeTotals.awards), currency(scopeTotals.actual), currency(scopeTotals.target), varianceText(scopeTotals.actual, scopeTotals.target), percent(scopeTotals.actual, scopeTotals.target)] });
+      renderTable('quarterlyScopeSummaryTable', ['Scope', 'Awards', 'Actual', 'Target', 'Variance', '%'], scopeRows);
 
-      var tableQuarter = selectedTargetQuarter === 'ALL' ? 'Q4' : selectedTargetQuarter;
-      var entityRows = getCumulativeQuarterAwardsByEntity(tableQuarter);
-      var rows = [];
-      for (var e = 0; e < entityRows.length; e++) {
-        var actual = Number(entityRows[e].awards || 0);
-        var target = Number(entityRows[e].target || 0);
-        var variance = actual - target;
-        var varianceClass = variance > 0 ? 'variance-positive' : (variance < 0 ? 'variance-negative' : 'variance-neutral');
-        rows.push([
-          entityRows[e].entity,
+      var ytdRows = [];
+      var totals = { actual: 0, target: 0 };
+      var orderedEntities = ['On Point', 'Nkanyezi', 'Aqua Telecoms', 'Distinct'];
+      var periodRows = getPeriodAwardsByEntity();
+      var map = {};
+      for (var i = 0; i < periodRows.length; i++) map[normalizeEntityName(periodRows[i].entity)] = periodRows[i];
+
+      for (var e = 0; e < orderedEntities.length; e++) {
+        var entity = orderedEntities[e];
+        var source = map[entity] || { awards: 0 };
+        var actual = Number(source.awards || 0);
+        var target = annualAwardsTargetForEntity(entity);
+        totals.actual += actual;
+        totals.target += target;
+        ytdRows.push([
+          entity,
           integer(actual),
           integer(target),
-          '<span class="' + varianceClass + '">' + integer(variance) + '</span>',
+          integer(actual - target),
           percent(actual, target)
         ]);
       }
-      renderTable('quarterlyEntityAwardSummaryTable', ['Cost Center', 'Actual', 'Target', 'Variance', '%'], rows);
+      ytdRows.push({ className: 'total-row', cells: [
+        'TOTAL',
+        integer(totals.actual),
+        integer(totals.target),
+        integer(totals.actual - totals.target),
+        percent(totals.actual, totals.target)
+      ]});
+      renderTable('quarterlyEntityAwardSummaryTable', ['COST CENTER', 'ACTUAL', 'TARGET', 'VARIANCE', '%'], ytdRows);
     }
 
     function renderEntityMatrices() {
@@ -883,7 +1122,6 @@
       var html = '';
       for (var i = 0; i < data.tenderSummary.length; i++) {
         var entityRow = data.tenderSummary[i];
-        if (!isVisibleEntity(entityRow.entity)) continue;
         html += '<div class="card entity-card">';
         html += '<div class="entity-head"><h2 class="matrix-title">' + entityRow.entity + ' - ' + getPeriodLabel() + '</h2></div>';
         html += '<div class="entity-body"><div class="matrix-scroll"><table class="matrix-table"><thead><tr><th>Metric</th>';
@@ -1004,7 +1242,6 @@
       var rows = [];
       for (var i = 0; i < data.tenderSummary.length; i++) {
         var row = data.tenderSummary[i];
-        if (!isVisibleEntity(row.entity)) continue;
         rows.push([
           row.entity,
           integer(sumMetricForMonths(row, 'tenders', selectedMonths)),
@@ -1043,9 +1280,9 @@
       for (var q = 0; q < data.pipeline.length; q++) {
         var pr = data.pipeline[q];
         if (selectedMonths.indexOf(normalizeMonthName(pr.expectedMonth)) === -1) continue;
-        pipeRows.push([pr.tenderNo || pr.tenderRef || pr.TenderRef || pr.opportunity || '', pr.entity, pr.scope, pr.stage, pr.expectedMonth, currency(pr.value)]);
+        pipeRows.push([pr.opportunity, pr.entity, pr.scope, pr.stage, pr.expectedMonth, currency(pr.value)]);
       }
-      renderTable('pipelineTable', ['Tender No.', 'Entity', 'Scope', 'Stage', 'Expected Month', 'Estimated Value'], pipeRows);
+      renderTable('pipelineTable', ['Opportunity', 'Entity', 'Scope', 'Stage', 'Expected Month', 'Estimated Value'], pipeRows);
 
       var execRows = [];
       var details = selectedPeriodContractRows();
@@ -1098,29 +1335,12 @@
         data: {
           labels: awardsByEntity.map(function (x) { return x.entity; }),
           datasets: [
-            { label: 'Target', data: awardsByEntity.map(function (x) { return x.target; }), backgroundColor: '#f59e0b' },
+            { label: 'Target', data: awardsByEntity.map(function (x) { return x.target; }), backgroundColor: '#f97316' },
             { label: 'Actual Awards', data: awardsByEntity.map(function (x) { return x.awards; }), backgroundColor: '#22c55e' }
           ]
         },
         options: { responsive: true, plugins: { legend: { position: 'top' } } }
       });
-
-      var tableQuarter = selectedTargetQuarter === 'ALL' ? 'Q4' : selectedTargetQuarter;
-      var quarterlyEntityRows = getCumulativeQuarterAwardsByEntity(tableQuarter);
-      var quarterlyCanvas = document.getElementById('quarterlyEntityAwardChart');
-      if (quarterlyCanvas) {
-        charts.quarterlyEntityAward = new Chart(quarterlyCanvas, {
-          type: 'bar',
-          data: {
-            labels: quarterlyEntityRows.map(function (x) { return x.entity; }),
-            datasets: [
-              { label: 'Target', data: quarterlyEntityRows.map(function (x) { return x.target; }), backgroundColor: '#f97316' },
-              { label: 'Actual', data: quarterlyEntityRows.map(function (x) { return x.awards; }), backgroundColor: '#22d3ee' }
-            ]
-          },
-          options: { responsive: true, plugins: { legend: { position: 'top' } } }
-        });
-      }
 
       var scopeRowsForChart = getPeriodScopeRows();
 
@@ -1129,24 +1349,45 @@
         data: {
           labels: scopeRowsForChart.map(function (x) { return x.scope; }),
           datasets: [
-            { label: 'Target', data: scopeRowsForChart.map(function (x) { return x.target; }), backgroundColor: '#f59e0b' },
+            { label: 'Target', data: scopeRowsForChart.map(function (x) { return x.target; }), backgroundColor: '#f97316' },
             { label: 'Actual', data: scopeRowsForChart.map(function (x) { return x.actual; }), backgroundColor: '#22c55e' }
           ]
         },
         options: { responsive: true, plugins: { legend: { position: 'top' } } }
       });
 
-      var entityValues = getPeriodAwardsByEntity();
+      var executiveAwardRows = selectedPeriodContractRows();
       charts.entityValue = new Chart(document.getElementById('entityValueChart'), {
         type: 'bar',
         data: {
-          labels: entityValues.map(function (x) { return x.entity; }),
+          labels: executiveAwardRows.map(function (x) {
+            return (getContractAwardedCompany(x) || getContractEntity(x)) + ' - ' + (getContractTenderRef(x) || normalizeScopeName(getContractScope(x)));
+          }),
           datasets: [
-            { label: 'Target Awards', data: entityValues.map(function (x) { return x.target; }), backgroundColor: '#38bdf8' },
-            { label: 'Actual Awards', data: entityValues.map(function (x) { return x.awards; }), backgroundColor: '#a855f7' }
+            { label: 'Contract Value', data: executiveAwardRows.map(function (x) { return getContractValue(x); }), backgroundColor: '#00c2ff' },
+            { label: 'Target', data: executiveAwardRows.map(function (x) { return getContractGraphTarget(x); }), backgroundColor: '#ff2d55' }
           ]
         },
-        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + currency(context.raw || 0);
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: function(value) { return currency(value); }
+              }
+            }
+          }
+        }
       });
 
       charts.privateSector = new Chart(document.getElementById('privateSectorChart'), {
@@ -1304,8 +1545,7 @@
       if (entryType === 'pipeline') {
         data.pipeline.push({
           id: new Date().getTime(),
-          tenderNo: form.tenderRef || form.opportunity || 'New tender',
-          opportunity: form.opportunity || '',
+          opportunity: form.opportunity || 'New opportunity',
           entity: form.entity,
           scope: form.scope,
           stage: form.stage,
@@ -1359,16 +1599,6 @@
       });
     }
 
-    function removeHiddenCostCenters() {
-      data.tenderSummary = filterVisibleEntities(data.tenderSummary || [], function(row) { return row.entity || row.Entity; });
-      data.awardsTargets = filterVisibleEntities(data.awardsTargets || [], getAwardEntity);
-      data.directContractsByEntity = filterVisibleEntities(data.directContractsByEntity || [], function(row) { return row.entity || row.Entity; });
-      data.privateSector = filterVisibleEntities(data.privateSector || [], function(row) { return row.entity || row.Entity; });
-      data.directContracts = filterVisibleEntities(data.directContracts || [], getContractEntity);
-      data.awardsDetail = filterVisibleEntities(data.awardsDetail || [], getContractEntity);
-      data.pipeline = filterVisibleEntities(data.pipeline || [], function(row) { return row.entity || row.Entity; });
-    }
-
     function applyLivePayload(result) {
       if (!result || !result.data) return;
       if (result.data.tenderSummary) data.tenderSummary = result.data.tenderSummary;
@@ -1380,7 +1610,15 @@
       if (result.data.directContracts) data.directContracts = result.data.directContracts;
       if (result.data.Direct_Contracts) data.directContracts = result.data.Direct_Contracts;
       if (result.data.awardsDetail) data.awardsDetail = result.data.awardsDetail;
-      removeHiddenCostCenters();
+
+      if (!Array.isArray(data.tenderSummary)) data.tenderSummary = [];
+      if (!Array.isArray(data.awardsTargets)) data.awardsTargets = [];
+      if (!Array.isArray(data.directContractsByEntity)) data.directContractsByEntity = [];
+      if (!Array.isArray(data.directContractsByScope)) data.directContractsByScope = [];
+      if (!Array.isArray(data.privateSector)) data.privateSector = [];
+      if (!Array.isArray(data.pipeline)) data.pipeline = [];
+      if (!Array.isArray(data.directContracts)) data.directContracts = [];
+      if (!Array.isArray(data.awardsDetail)) data.awardsDetail = [];
     }
 
     function syncLiveData(showAlert) {
@@ -1399,6 +1637,7 @@
 
         connected = true;
         applyLivePayload(result);
+        try { localStorage.setItem('tenderingDashboardDemoData', JSON.stringify(data)); } catch (e) { console.error(e); }
         renderAll();
         setStatus('Connected to live data', 'connected');
 
@@ -1413,13 +1652,14 @@
     }
 
     function renderAll() {
-      removeHiddenCostCenters();
       ensureMonthlyAwardsFromAwardTargets();
       rebuildDirectContractSummaries();
       renderConnection();
       renderPeriodFilterNote();
       renderKPIs();
       renderPeriodSummary();
+      renderDashboardEntitySummaryTables();
+      renderTenderingStrategyTable();
       renderQuarterlySummaryTables();
       renderEntityMatrices();
       renderTables();

@@ -293,14 +293,18 @@ button.synced{background:var(--green)!important;color:white!important}
 <div class="section">
 <div class="section-header"><h2>Visual Workflow Builder</h2></div>
 <div class="notice">Triggers, conditional logic, approvals, escalations and automation workflows enabled.</div>
+<div id="workflowBuilderMessage"></div>
 <div class="grid">
-<input placeholder="Workflow Name">
-<select><option>Tasks</option><option>Projects</option><option>CRM</option></select>
-<select><option>When Record Is Created</option><option>When Record Is Updated</option><option>Scheduled</option></select>
-<select><option>Send Email</option><option>Send WhatsApp</option><option>Request Approval</option><option>Escalate</option></select>
+<input id="workflowName" placeholder="Workflow Name">
+<select id="workflowModule"><option>Tasks</option><option>Projects</option><option>CRM</option></select>
+<select id="workflowTrigger"><option>When Record Is Created</option><option>When Record Is Updated</option><option>Scheduled</option></select>
+<select id="workflowAction"><option>Send Email</option><option>Send WhatsApp</option><option>Request Approval</option><option>Escalate</option></select>
 </div>
-<textarea placeholder="Workflow Action Message"></textarea>
-<button>Save Workflow</button>
+<textarea id="workflowMessage" placeholder="Workflow Action Message"></textarea>
+<div class="form-actions">
+<button onclick="saveWorkflow(this)">Save Workflow</button>
+<button class="secondary" onclick="clearWorkflowForm()">Clear</button>
+</div>
 </div>
 </section>
 
@@ -1074,6 +1078,46 @@ async function loadRecurringTasks(button){
 
 function htmlEscape(value){
   return String(value ?? "").replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+async function saveWorkflow(button){
+  setButtonSync(button,"Synchronising...");
+  try{
+    const payload={
+      WorkflowID:"WF-"+Date.now(),
+      Name:document.getElementById("workflowName").value.trim(),
+      Module:document.getElementById("workflowModule").value,
+      Trigger:document.getElementById("workflowTrigger").value,
+      Action:document.getElementById("workflowAction").value,
+      Message:document.getElementById("workflowMessage").value.trim(),
+      Status:"Active",
+      DateCreated:nowIso()
+    };
+    if(!payload.Name || !payload.Message){
+      showMessage("workflowBuilderMessage","Please enter Workflow Name and Workflow Action Message.","error");
+      finishButtonSync(button,false);
+      return;
+    }
+    const result=await insertSheetData("Workflows",payload);
+    if(result.status==="success"){
+      showMessage("workflowBuilderMessage","Workflow saved successfully.","success");
+      clearWorkflowForm();
+      finishButtonSync(button,true);
+    }else{
+      showMessage("workflowBuilderMessage",result.message || "Could not save workflow.","error");
+      finishButtonSync(button,false);
+    }
+  }catch(error){
+    showMessage("workflowBuilderMessage",error.message,"error");
+    finishButtonSync(button,false);
+  }
+}
+
+function clearWorkflowForm(){
+  ["workflowName","workflowMessage"].forEach(id=>{const el=document.getElementById(id); if(el) el.value="";});
+  const module=document.getElementById("workflowModule"); if(module) module.value="Tasks";
+  const trigger=document.getElementById("workflowTrigger"); if(trigger) trigger.value="When Record Is Created";
+  const action=document.getElementById("workflowAction"); if(action) action.value="Send Email";
 }
 
 async function saveApprovalRequest(button){

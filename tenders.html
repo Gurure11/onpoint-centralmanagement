@@ -96,14 +96,26 @@
     .variance-neutral { color: #334155; font-weight: 800; }
 
     .progress-stack { display: grid; gap: 12px; margin-top: 12px; }
+    .entity-progress-stack { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; width: 100%; }
+    .entity-progress-card { border: 1px solid var(--line); border-radius: 14px; background: #ffffff; padding: 12px; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; }
+    .entity-progress-title { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; color: #334155; margin-bottom: 6px; line-height: 1.25; }
+    .entity-progress-values { color: var(--muted); font-size: 11px; margin-bottom: 6px; line-height: 1.3; }
     .progress-item { display: grid; gap: 6px; }
     .progress-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; font-weight: 700; }
-    .progress-track { width: 100%; height: 12px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .progress-track { width: 100%; height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 999px; background: var(--primary); min-width: 0; }
     .progress-fill.value { background: #1d4ed8; }
     .progress-fill.time { background: #f59e0b; }
     .dashboard-detail-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
     .total-row td { font-weight: 800; background: #f8fafc; }
+
+
+    @media (max-width: 1100px) {
+      .entity-progress-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .entity-progress-stack { grid-template-columns: 1fr; }
+    }
 
     @media (max-width: 1100px) {
       .kpi-grid, .grid-2, .grid-3, .form-grid { grid-template-columns: 1fr 1fr; }
@@ -179,8 +191,7 @@
       <button class="tab-btn" data-tab="input">Data Input</button>
     </nav>
 
-    <section id="dashboard" class="tab-panel active">
-      <div class="card">
+    <section id="dashboard" class="tab-panel active">      <div class="card">
         <h2 class="section-title" id="periodSummaryTitle">Group Summary</h2>
         <div class="period-summary-grid" id="periodSummaryGrid"></div>
         <div class="dashboard-detail-grid">
@@ -194,6 +205,12 @@
           </div>
         </div>
       </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <h2 class="section-title">Cost Center Progress Overview</h2>
+        <div id="separateCostCenterProgress"></div>
+      </div>
+
       <div class="grid-3" style="margin-top: 16px;">
         <div class="card"><h2 class="section-title">GROUP YTD VALUE OF WORK AWARDED BY SCOPE</h2><div id="quarterlyScopeSummaryTable"></div></div>
         <div class="card"><h2 class="section-title">YTD TOTAL AWARDS</h2><div id="quarterlyEntityAwardSummaryTable"></div></div>
@@ -312,6 +329,9 @@
     var SCOPES = ["Civils", "Roads", "Building", "Electrical", "Telecoms", "Mechanical", "Plant Hire"];
     var DIRECT_SCOPE_TARGETS = { "Civils": 105000000, "Roads": 106000000, "Building": 105000000, "Electrical": 202000000, "Telecoms": 75000000, "Mechanical": 100000000, "Plant Hire": 10000000 };
     var DIRECT_CONTRACT_TARGET_TOTAL = 703000000;
+    var WINDOW_ENTITY_TARGETS = { "On Point": 225000000, "Nkanyezi": 15000000, "Aqua Telecoms": 87500000, "Distinct": 9000000 };
+    var WINDOW_ENTITY_ACTUALS = { "On Point": 135641631.90, "Nkanyezi": 2.00, "Aqua Telecoms": 0, "Distinct": 0 };
+    var EXECUTIVE_ENTITY_TARGETS = { "On Point": 480000000, "Aqua Telecoms": 175000000, "Nkanyezi": 30000000, "Distinct": 18000000 };
     var CUMULATIVE_QUARTER_VALUE_TARGETS = { Q1: 175750000, Q2: 351500000, Q3: 527250000, Q4: 703000000 };
     var TENDERING_STRATEGY_TARGETS = [
       { scope: "Civils", onpoint: 95000000, aqua: 0, nkanyezi: 10000000, distinct: 0, total: 105000000 },
@@ -419,6 +439,98 @@
         '<div class="progress-meta"><span>' + label + '</span><span>' + actualText + ' | ' + pct.toFixed(2) + '%</span></div>' +
         '<div class="progress-track"><div class="progress-fill ' + (fillClass || '') + '" style="width:' + pct + '%"></div></div>' +
       '</div>';
+    }
+
+    function getEntityAnnualValueTarget(entity) {
+      var wanted = normalizeEntityName(entity);
+      if (Object.prototype.hasOwnProperty.call(EXECUTIVE_ENTITY_TARGETS, wanted)) return Number(EXECUTIVE_ENTITY_TARGETS[wanted] || 0);
+      for (var i = 0; i < data.directContractsByEntity.length; i++) {
+        if (normalizeEntityName(data.directContractsByEntity[i].entity) === wanted) return Number(data.directContractsByEntity[i].target || 0);
+      }
+      return 0;
+    }
+
+    function getSelectedTargetMonthsForProgress() {
+      if (selectedTargetQuarter === 'Q1') return QUARTERS.Q1.slice();
+      if (selectedTargetQuarter === 'Q2') return QUARTERS.Q2.slice();
+      if (selectedTargetQuarter === 'Q3') return QUARTERS.Q3.slice();
+      if (selectedTargetQuarter === 'Q4') return QUARTERS.Q4.slice();
+      if (selectedPeriod === 'Q1') return QUARTERS.Q1.slice();
+      if (selectedPeriod === 'Q2') return QUARTERS.Q2.slice();
+      if (selectedPeriod === 'Q3') return QUARTERS.Q3.slice();
+      if (selectedPeriod === 'Q4') return QUARTERS.Q4.slice();
+      if (selectedPeriod === 'CURRENT') return [getCurrentFinancialMonth()];
+      return MONTHS.slice();
+    }
+
+    function getProgressPeriodLabel() {
+      if (selectedTargetQuarter === 'Q1' || selectedTargetQuarter === 'Q2' || selectedTargetQuarter === 'Q3' || selectedTargetQuarter === 'Q4') {
+        return selectedTargetQuarter + ' (' + QUARTERS[selectedTargetQuarter].join(', ') + ')';
+      }
+      if (selectedPeriod === 'CURRENT') return 'This Month (' + getCurrentFinancialMonth() + ')';
+      if (selectedPeriod === 'Q1' || selectedPeriod === 'Q2' || selectedPeriod === 'Q3' || selectedPeriod === 'Q4') {
+        return selectedPeriod + ' (' + QUARTERS[selectedPeriod].join(', ') + ')';
+      }
+      return 'Full Financial Year';
+    }
+
+    function getEntityValueActualForMonths(entity, months) {
+      var wanted = normalizeEntityName(entity);
+      var total = 0;
+      var rows = getDirectContractsRows();
+      for (var i = 0; i < rows.length; i++) {
+        if (getContractEntity(rows[i]) !== wanted) continue;
+        if (months.indexOf(getContractMonth(rows[i])) === -1) continue;
+        var scope = normalizeScopeName(getContractScope(rows[i]));
+        var value = getContractValue(rows[i]);
+        if ((scope === 'Building' || scope === 'Civils') && value > 0 && value <= 10) continue;
+        total += value;
+      }
+      return total;
+    }
+
+    function getEntityAwardActualForMonths(entity, months) {
+      var wanted = normalizeEntityName(entity);
+      var total = 0;
+      for (var i = 0; i < data.awardsTargets.length; i++) {
+        if (getAwardEntity(data.awardsTargets[i]) !== wanted) continue;
+        var awardMonth = getAwardMonth(data.awardsTargets[i]);
+        if (!awardMonth || months.indexOf(awardMonth) > -1) total += getAwardActual(data.awardsTargets[i]);
+      }
+      return total;
+    }
+
+    function getWindowEntityActual(entity) {
+      return getEntityValueActualForMonths(entity, getSelectedTargetMonthsForProgress());
+    }
+
+    function renderCostCenterProgressStack() {
+      var order = ['On Point', 'Nkanyezi', 'Aqua Telecoms', 'Distinct'];
+      var months = getSelectedTargetMonthsForProgress();
+      var monthFraction = months.length / 12;
+      var html = '<div class="small-note"><strong>Progress period:</strong> ' + getProgressPeriodLabel() + '</div>';
+      html += '<div class="entity-progress-stack">';
+      for (var i = 0; i < order.length; i++) {
+        var entity = order[i];
+
+        var valueActual = getEntityValueActualForMonths(entity, months);
+        var valueTarget = getEntityAnnualValueTarget(entity) * monthFraction;
+        var valuePct = progressPercent(valueActual, valueTarget);
+
+        var awardsActual = getEntityAwardActualForMonths(entity, months);
+        var awardsTarget = annualAwardsTargetForEntity(entity) * monthFraction;
+        var awardsPct = progressPercent(awardsActual, awardsTarget);
+
+        html += '<div class="entity-progress-card">' +
+          '<div class="entity-progress-title"><span>' + entity + '</span><span>Value ' + valuePct.toFixed(2) + '% | Awards ' + awardsPct.toFixed(2) + '%</span></div>' +
+          '<div class="entity-progress-values">Value Actual ' + currency(valueActual) + ' vs Target ' + currency(valueTarget) + '</div>' +
+          '<div class="progress-track"><div class="progress-fill value" style="width:' + valuePct + '%"></div></div>' +
+          '<div class="entity-progress-values" style="margin-top:8px;">Awards Actual ' + integer(awardsActual) + ' vs Target ' + integer(awardsTarget) + '</div>' +
+          '<div class="progress-track"><div class="progress-fill" style="width:' + awardsPct + '%"></div></div>' +
+        '</div>';
+      }
+      html += '</div>';
+      return html;
     }
 
     function financialYearStartDate() {
@@ -860,22 +972,16 @@
       var rows = getQuarterAwardsByEntity(q);
       var valueTargets = getQuarterValueTargetByEntity(q);
       var awards = 0, awardTarget = 0, value = 0, valueTarget = Number(CUMULATIVE_QUARTER_VALUE_TARGETS[q] || 0);
-      var entityLines = [];
       for (var i = 0; i < rows.length; i++) {
         awards += Number(rows[i].awards || 0);
         awardTarget += Number(rows[i].target || 0);
         value += Number(rows[i].value || 0);
-        var entityTarget = Number(valueTargets[normalizeEntityName(rows[i].entity)] || 0);
-        if (entityTarget || Number(rows[i].value || 0)) {
-          entityLines.push(rows[i].entity + ' ' + currency(rows[i].value) + ' vs Target ' + currency(entityTarget));
-        }
       }
       var months = getCumulativeQuarterMonths(q);
       var timePct = elapsedRatioForMonths(months) * 100;
       return '<div class="summary-card"><div class="label">' + q + ' Cumulative (' + months.join(', ') + ')</div>' +
         '<div class="value">' + integer(awards) + ' vs target ' + integer(awardTarget) + '</div>' +
         '<div class="sub">Award value: ' + currency(value) + ' vs target ' + currency(valueTarget) + '</div>' +
-        '<div class="sub">' + entityLines.join('<br>') + '</div>' +
         '<div class="progress-stack">' +
           progressBar('Awards actual vs target', integer(awards) + ' / ' + integer(awardTarget), awards, awardTarget, '') +
           progressBar('Value actual vs target', currency(value) + ' / ' + currency(valueTarget), value, valueTarget, 'value') +
@@ -1356,16 +1462,14 @@
         options: { responsive: true, plugins: { legend: { position: 'top' } } }
       });
 
-      var executiveAwardRows = selectedPeriodContractRows();
+      var executiveEntities = ['On Point', 'Aqua Telecoms', 'Nkanyezi', 'Distinct'];
       charts.entityValue = new Chart(document.getElementById('entityValueChart'), {
         type: 'bar',
         data: {
-          labels: executiveAwardRows.map(function (x) {
-            return (getContractAwardedCompany(x) || getContractEntity(x)) + ' - ' + (getContractTenderRef(x) || normalizeScopeName(getContractScope(x)));
-          }),
+          labels: executiveEntities,
           datasets: [
-            { label: 'Contract Value', data: executiveAwardRows.map(function (x) { return getContractValue(x); }), backgroundColor: '#00c2ff' },
-            { label: 'Target', data: executiveAwardRows.map(function (x) { return getContractGraphTarget(x); }), backgroundColor: '#ff2d55' }
+            { label: 'Actual', data: executiveEntities.map(function (entity) { return getWindowEntityActual(entity); }), backgroundColor: '#00c2ff' },
+            { label: 'Target', data: executiveEntities.map(function (entity) { return Number(EXECUTIVE_ENTITY_TARGETS[entity] || 0); }), backgroundColor: '#ff2d55' }
           ]
         },
         options: {
@@ -1661,6 +1765,10 @@
       renderDashboardEntitySummaryTables();
       renderTenderingStrategyTable();
       renderQuarterlySummaryTables();
+      var progressContainer = document.getElementById('separateCostCenterProgress');
+      if (progressContainer) {
+        progressContainer.innerHTML = renderCostCenterProgressStack();
+      }
       renderEntityMatrices();
       renderTables();
       renderCharts();

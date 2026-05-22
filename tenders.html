@@ -96,16 +96,31 @@
     .variance-neutral { color: #334155; font-weight: 800; }
 
     .progress-stack { display: grid; gap: 12px; margin-top: 12px; }
-    .entity-progress-stack { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; width: 100%; }
-    .entity-progress-card { border: 1px solid var(--line); border-radius: 14px; background: #ffffff; padding: 12px; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; }
-    .entity-progress-title { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; color: #334155; margin-bottom: 6px; line-height: 1.25; }
+    .cost-center-section { margin-top: 18px; padding: 18px; border: 1px solid #dbeafe; border-radius: 22px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.75); }
+    .section-heading-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .section-subtitle { color: var(--muted); font-size: 13px; margin-top: -6px; }
+    .entity-progress-stack { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 12px; width: 100%; }
+    .entity-progress-card { --cc-color: var(--primary); border: 1px solid #e5e7eb; border-top: 5px solid var(--cc-color); border-radius: 18px; background: #ffffff; padding: 14px; min-height: 210px; display: grid; gap: 10px; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.07); }
+    .entity-progress-title { display: grid; gap: 8px; font-size: 12px; font-weight: 800; color: #334155; line-height: 1.25; }
+    .entity-progress-name { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #0f172a; }
+    .entity-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--cc-color); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cc-color) 14%, transparent); }
+    .entity-progress-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+    .metric-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 8px; background: #f1f5f9; color: #334155; font-size: 11px; font-weight: 800; }
+    .metric-badge.low { background: #fee2e2; color: #b91c1c; }
     .entity-progress-values { color: var(--muted); font-size: 11px; margin-bottom: 6px; line-height: 1.3; }
     .progress-item { display: grid; gap: 6px; }
     .progress-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; font-weight: 700; }
-    .progress-track { width: 100%; height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 999px; background: var(--primary); min-width: 0; }
-    .progress-fill.value { background: #1d4ed8; }
-    .progress-fill.time { background: #f59e0b; }
+    .progress-track { width: 100%; height: 9px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; background: var(--cc-color); min-width: 0; }
+    .progress-fill.value { background: var(--cc-color); }
+    .progress-fill.awards { background: color-mix(in srgb, var(--cc-color) 78%, #0f172a 22%); }
+    .progress-fill.time { background: #64748b; }
+    .progress-fill.low { background: #dc2626 !important; }
+    .quarter-progress-track { position: relative; height: 22px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .quarter-progress-fill { height: 100%; border-radius: 999px; background: var(--primary); min-width: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: #ffffff; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .quarter-progress-fill.value { background: #0f766e; }
+    .quarter-progress-fill.time { background: #64748b; }
+    .quarter-progress-empty-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #334155; font-size: 11px; font-weight: 800; pointer-events: none; }
     .dashboard-detail-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
     .total-row td { font-weight: 800; background: #f8fafc; }
 
@@ -194,6 +209,15 @@
     <section id="dashboard" class="tab-panel active">      <div class="card">
         <h2 class="section-title" id="periodSummaryTitle">Group Summary</h2>
         <div class="period-summary-grid" id="periodSummaryGrid"></div>
+        <div class="cost-center-section">
+          <div class="section-heading-row">
+            <div>
+              <h2 class="section-title">Cost Center Progress Overview</h2>
+              <div class="section-subtitle">Value, awards and selected-period time lapse by cost center.</div>
+            </div>
+          </div>
+          <div id="separateCostCenterProgress"></div>
+        </div>
         <div class="dashboard-detail-grid">
           <div>
             <h2 class="section-title">Summary by Entity</h2>
@@ -204,11 +228,6 @@
             <div id="dashboardYtdEntityTable"></div>
           </div>
         </div>
-      </div>
-
-      <div class="card" style="margin-top: 16px;">
-        <h2 class="section-title">Cost Center Progress Overview</h2>
-        <div id="separateCostCenterProgress"></div>
       </div>
 
       <div class="grid-3" style="margin-top: 16px;">
@@ -506,27 +525,48 @@
 
     function renderCostCenterProgressStack() {
       var order = ['On Point', 'Nkanyezi', 'Aqua Telecoms', 'Distinct'];
+      var colors = {
+        'On Point': '#0f766e',
+        'Nkanyezi': '#7c3aed',
+        'Aqua Telecoms': '#0284c7',
+        'Distinct': '#ea580c'
+      };
       var months = getSelectedTargetMonthsForProgress();
       var monthFraction = months.length / 12;
-      var html = '<div class="small-note"><strong>Progress period:</strong> ' + getProgressPeriodLabel() + '</div>';
+      var timePct = elapsedRatioForMonths(months) * 100;
+      var html = '<div class="small-note"><strong>Progress period:</strong> ' + getProgressPeriodLabel() + ' &nbsp;|&nbsp; <strong>Time lapse:</strong> ' + timePct.toFixed(2) + '% elapsed</div>';
       html += '<div class="entity-progress-stack">';
       for (var i = 0; i < order.length; i++) {
         var entity = order[i];
+        var ccColor = colors[entity] || '#0f766e';
 
         var valueActual = getEntityValueActualForMonths(entity, months);
         var valueTarget = getEntityAnnualValueTarget(entity) * monthFraction;
         var valuePct = progressPercent(valueActual, valueTarget);
+        var valueLow = valuePct < 50 ? ' low' : '';
 
         var awardsActual = getEntityAwardActualForMonths(entity, months);
         var awardsTarget = annualAwardsTargetForEntity(entity) * monthFraction;
         var awardsPct = progressPercent(awardsActual, awardsTarget);
+        var awardsLow = awardsPct < 50 ? ' low' : '';
 
-        html += '<div class="entity-progress-card">' +
-          '<div class="entity-progress-title"><span>' + entity + '</span><span>Value ' + valuePct.toFixed(2) + '% | Awards ' + awardsPct.toFixed(2) + '%</span></div>' +
-          '<div class="entity-progress-values">Value Actual ' + currency(valueActual) + ' vs Target ' + currency(valueTarget) + '</div>' +
-          '<div class="progress-track"><div class="progress-fill value" style="width:' + valuePct + '%"></div></div>' +
-          '<div class="entity-progress-values" style="margin-top:8px;">Awards Actual ' + integer(awardsActual) + ' vs Target ' + integer(awardsTarget) + '</div>' +
-          '<div class="progress-track"><div class="progress-fill" style="width:' + awardsPct + '%"></div></div>' +
+        html += '<div class="entity-progress-card" style="--cc-color:' + ccColor + '">' +
+          '<div class="entity-progress-title">' +
+            '<div class="entity-progress-name"><span class="entity-dot"></span><span>' + entity + '</span></div>' +
+            '<div class="entity-progress-badges"><span class="metric-badge' + valueLow + '">Value ' + valuePct.toFixed(2) + '%</span><span class="metric-badge' + awardsLow + '">Awards ' + awardsPct.toFixed(2) + '%</span></div>' +
+          '</div>' +
+          '<div class="progress-item">' +
+            '<div class="progress-meta"><span>Value Actual</span><span>' + currency(valueActual) + ' / ' + currency(valueTarget) + '</span></div>' +
+            '<div class="progress-track"><div class="progress-fill value' + valueLow + '" style="width:' + valuePct + '%"></div></div>' +
+          '</div>' +
+          '<div class="progress-item">' +
+            '<div class="progress-meta"><span>Awards Actual</span><span>' + integer(awardsActual) + ' / ' + integer(awardsTarget) + '</span></div>' +
+            '<div class="progress-track"><div class="progress-fill awards' + awardsLow + '" style="width:' + awardsPct + '%"></div></div>' +
+          '</div>' +
+          '<div class="progress-item">' +
+            '<div class="progress-meta"><span>Time lapse</span><span>' + timePct.toFixed(2) + '% elapsed</span></div>' +
+            '<div class="progress-track"><div class="progress-fill time" style="width:' + timePct + '%"></div></div>' +
+          '</div>' +
         '</div>';
       }
       html += '</div>';
@@ -968,6 +1008,18 @@
       return targets;
     }
 
+    function quarterProgressBar(label, actualText, actual, target, fillClass) {
+      var pct = progressPercent(actual, target);
+      var labelText = actualText + ' | ' + pct.toFixed(2) + '%';
+      var visiblePct = pct > 0 && pct < 4 ? 4 : pct;
+      var insideLabel = pct >= 18 ? labelText : '';
+      var outsideLabel = pct < 18 ? '<div class="quarter-progress-empty-label">' + labelText + '</div>' : '';
+      return '<div class="progress-item">' +
+        '<div class="progress-meta"><span>' + label + '</span><span>' + labelText + '</span></div>' +
+        '<div class="quarter-progress-track"><div class="quarter-progress-fill ' + (fillClass || '') + '" style="width:' + visiblePct + '%">' + insideLabel + '</div>' + outsideLabel + '</div>' +
+      '</div>';
+    }
+
     function renderQuarterWindowCard(q) {
       var rows = getQuarterAwardsByEntity(q);
       var valueTargets = getQuarterValueTargetByEntity(q);
@@ -983,9 +1035,9 @@
         '<div class="value">' + integer(awards) + ' vs target ' + integer(awardTarget) + '</div>' +
         '<div class="sub">Award value: ' + currency(value) + ' vs target ' + currency(valueTarget) + '</div>' +
         '<div class="progress-stack">' +
-          progressBar('Awards actual vs target', integer(awards) + ' / ' + integer(awardTarget), awards, awardTarget, '') +
-          progressBar('Value actual vs target', currency(value) + ' / ' + currency(valueTarget), value, valueTarget, 'value') +
-          progressBar('Time lapse', timePct.toFixed(2) + '% elapsed', timePct, 100, 'time') +
+          quarterProgressBar('Awards actual vs target', integer(awards) + ' / ' + integer(awardTarget), awards, awardTarget, '') +
+          quarterProgressBar('Value actual vs target', currency(value) + ' / ' + currency(valueTarget), value, valueTarget, 'value') +
+          quarterProgressBar('Time lapse', timePct.toFixed(2) + '% elapsed', timePct, 100, 'time') +
         '</div></div>';
     }
 

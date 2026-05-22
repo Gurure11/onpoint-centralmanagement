@@ -122,6 +122,12 @@
     .quarter-progress-fill.time { background: #64748b; }
     .quarter-progress-empty-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #334155; font-size: 11px; font-weight: 800; pointer-events: none; }
     .dashboard-detail-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
+
+    .dashboard-edit-bar { margin-top: 16px; background: white; border-radius: 22px; padding: 14px; display: flex; gap: 12px; align-items: end; flex-wrap: wrap; box-shadow: var(--shadow); }
+    .dashboard-edit-bar .field { min-width: 240px; }
+    .section-action-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn-small { padding: 8px 10px; border-radius: 12px; font-size: 12px; }
+    .btn-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .total-row td { font-weight: 800; background: #f8fafc; }
 
 
@@ -206,7 +212,28 @@
       <button class="tab-btn" data-tab="input">Data Input</button>
     </nav>
 
-    <section id="dashboard" class="tab-panel active">      <div class="card">
+    <section id="dashboard" class="tab-panel active">
+      <div class="dashboard-edit-bar" aria-label="Dashboard edit controls">
+        <div class="field">
+          <label for="dashboardSectionEditor">Edit Dashboard Section</label>
+          <select id="dashboardSectionEditor">
+            <option value="tenderSummary">Tenders & RFQs</option>
+            <option value="awardsTargets">Awards</option>
+            <option value="directContracts">Executive Awards / Direct Contracts</option>
+            <option value="directContractsByEntity">Direct by Entity</option>
+            <option value="directContractsByScope">Direct by Scope</option>
+            <option value="privateSector">Private Sector</option>
+            <option value="pipeline">Pipeline</option>
+          </select>
+        </div>
+        <div class="section-action-row">
+          <button class="btn btn-primary btn-small" id="dashboardAddBtn" type="button">Add Data</button>
+          <button class="btn btn-outline btn-small" id="dashboardEditBtn" type="button">Edit Section</button>
+          <button class="btn btn-danger btn-small" id="dashboardDeleteBtn" type="button">Delete Section Data</button>
+        </div>
+        <div class="small-note">Choose a section, then add, edit, or clear its data. Existing dashboard layout remains unchanged.</div>
+      </div>
+      <div class="card">
         <h2 class="section-title" id="periodSummaryTitle">Group Summary</h2>
         <div class="period-summary-grid" id="periodSummaryGrid"></div>
         <div class="cost-center-section">
@@ -1826,6 +1853,74 @@
       renderCharts();
     }
 
+
+    function activateTab(tabId) {
+      var allBtns = document.querySelectorAll('.tab-btn');
+      var panels = document.querySelectorAll('.tab-panel');
+      for (var b = 0; b < allBtns.length; b++) allBtns[b].classList.remove('active');
+      for (var p = 0; p < panels.length; p++) panels[p].classList.remove('active');
+
+      var btn = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+      var panel = document.getElementById(tabId);
+      if (btn) btn.classList.add('active');
+      if (panel) panel.classList.add('active');
+    }
+
+    function openDashboardSectionEditor() {
+      var selector = document.getElementById('dashboardSectionEditor');
+      var section = selector ? selector.value : 'directContracts';
+      if (formEls.entryType) formEls.entryType.value = section;
+      activateTab('input');
+      var target = document.getElementById('entryType');
+      if (target) target.focus();
+    }
+
+    function clearDashboardSectionData() {
+      var selector = document.getElementById('dashboardSectionEditor');
+      var section = selector ? selector.value : '';
+      var label = selector && selector.options[selector.selectedIndex] ? selector.options[selector.selectedIndex].text : 'this section';
+
+      if (!section) return;
+      if (!confirm('Delete demo/local data for ' + label + '? This only affects the dashboard data stored in this browser.')) return;
+
+      if (section === 'tenderSummary') {
+        for (var i = 0; i < data.tenderSummary.length; i++) {
+          data.tenderSummary[i].tenders = {};
+          data.tenderSummary[i].rfqs = {};
+          data.tenderSummary[i].awards = {};
+        }
+      } else if (section === 'awardsTargets') {
+        data.awardsTargets = [];
+        data.awardsDetail = [];
+      } else if (section === 'directContracts') {
+        data.directContracts = [];
+        data.awardsDetail = [];
+      } else if (section === 'directContractsByEntity') {
+        for (var e = 0; e < data.directContractsByEntity.length; e++) data.directContractsByEntity[e].actual = 0;
+      } else if (section === 'directContractsByScope') {
+        for (var s = 0; s < data.directContractsByScope.length; s++) data.directContractsByScope[s].actual = 0;
+      } else if (section === 'privateSector') {
+        for (var p = 0; p < data.privateSector.length; p++) data.privateSector[p].actual = 0;
+      } else if (section === 'pipeline') {
+        data.pipeline = [];
+      }
+
+      try { localStorage.setItem('tenderingDashboardDemoData', JSON.stringify(data)); } catch (e) { console.error(e); }
+      renderAll();
+      alert(label + ' data deleted locally.');
+    }
+
+    function setupDashboardEditControls() {
+      var addBtn = document.getElementById('dashboardAddBtn');
+      var editBtn = document.getElementById('dashboardEditBtn');
+      var deleteBtn = document.getElementById('dashboardDeleteBtn');
+
+      if (addBtn) addBtn.addEventListener('click', openDashboardSectionEditor);
+      if (editBtn) editBtn.addEventListener('click', openDashboardSectionEditor);
+      if (deleteBtn) deleteBtn.addEventListener('click', clearDashboardSectionData);
+    }
+
+
     function setupTabs() {
       var buttons = document.querySelectorAll('.tab-btn');
       for (var i = 0; i < buttons.length; i++) {
@@ -1889,6 +1984,7 @@ document.getElementById('saveDemoBtn').addEventListener('click', saveDemoData);
       document.getElementById('saveSheetsBtn').addEventListener('click', saveToGoogleSheets);
       document.getElementById('syncLiveBtn').addEventListener('click', function() { syncLiveData(true); });
 
+      setupDashboardEditControls();
       setupTabs();
       renderAll();
 

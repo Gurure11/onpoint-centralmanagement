@@ -1032,10 +1032,10 @@
       var months = getCumulativeQuarterMonths(q);
       var timePct = elapsedRatioForMonths(months) * 100;
       return '<div class="summary-card"><div class="label">' + q + ' Cumulative (' + months.join(', ') + ')</div>' +
-        '<div class="value">' + integer(awards) + ' vs target ' + integer(awardTarget) + '</div>' +
+        '<div class="value">' + integer(awards) + ' vs target ' + integer(Math.round(awardTarget)) + '</div>' +
         '<div class="sub">Award value: ' + currency(value) + ' vs target ' + currency(valueTarget) + '</div>' +
         '<div class="progress-stack">' +
-          quarterProgressBar('Awards actual vs target', integer(awards) + ' / ' + integer(awardTarget), awards, awardTarget, '') +
+          quarterProgressBar('Awards actual vs target', integer(awards) + ' / ' + integer(Math.round(awardTarget)), awards, awardTarget, '') +
           quarterProgressBar('Value actual vs target', currency(value) + ' / ' + currency(valueTarget), value, valueTarget, 'value') +
           quarterProgressBar('Time lapse', timePct.toFixed(2) + '% elapsed', timePct, 100, 'time') +
         '</div></div>';

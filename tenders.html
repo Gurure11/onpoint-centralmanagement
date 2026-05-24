@@ -81,6 +81,7 @@
     .filter-bar { margin-top: 16px; background: white; border-radius: 22px; padding: 14px; display: flex; gap: 12px; align-items: end; flex-wrap: wrap; box-shadow: var(--shadow); }
     .filter-bar .field { min-width: 220px; }
     .period-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
+    .period-summary-grid.single-quarter { grid-template-columns: 1fr; }
     .summary-card { border-radius: 20px; padding: 16px; border: 1px solid var(--line); background: #ffffff; }
     .summary-card .label { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
     .summary-card .value { font-size: 26px; font-weight: 800; color: var(--text); }
@@ -391,7 +392,7 @@
     var QUARTERS = { Q1: ["MAR", "APR", "MAY"], Q2: ["JUN", "JUL", "AUG"], Q3: ["SEP", "OCT", "NOV"], Q4: ["DEC", "JAN", "FEB"] };
     var selectedPeriod = "ALL";
     var selectedTargetQuarter = "ALL";
-    var FIXED_ANNUAL_AWARD_TARGETS = { "On Point": 50, "Aqua Telecoms": 30, "Nkanyezi": 24, "Distinct": 10 };
+    var FIXED_ANNUAL_AWARD_TARGETS = { "On Point": 50, "Aqua Telecoms": 24, "Nkanyezi": 30, "Distinct": 10 };
     var ENTITIES = ["On Point", "Nkanyezi", "Aqua Telecoms", "Distinct", "Aquatech", "Advantedge"];
     var SCOPES = ["Civils", "Roads", "Building", "Electrical", "Telecoms", "Mechanical", "Plant Hire"];
     var DIRECT_SCOPE_TARGETS = { "Civils": 105000000, "Roads": 106000000, "Building": 105000000, "Electrical": 202000000, "Telecoms": 75000000, "Mechanical": 100000000, "Plant Hire": 10000000 };
@@ -1132,10 +1133,19 @@
 
     function renderPeriodSummary() {
       document.getElementById('periodSummaryTitle').textContent = 'Quarterly Group Summary';
-      var quartersToShow = selectedTargetQuarter === 'ALL' ? ['Q1', 'Q2', 'Q3', 'Q4'] : [selectedTargetQuarter];
+      var quartersToShow;
+      if (selectedTargetQuarter !== 'ALL') {
+        quartersToShow = [selectedTargetQuarter];
+      } else if (selectedPeriod === 'Q1' || selectedPeriod === 'Q2' || selectedPeriod === 'Q3' || selectedPeriod === 'Q4') {
+        quartersToShow = [selectedPeriod];
+      } else {
+        quartersToShow = ['Q1', 'Q2', 'Q3', 'Q4'];
+      }
       var html = '';
       for (var q = 0; q < quartersToShow.length; q++) html += renderQuarterWindowCard(quartersToShow[q]);
-      document.getElementById('periodSummaryGrid').innerHTML = html;
+      var grid = document.getElementById('periodSummaryGrid');
+      grid.classList.toggle('single-quarter', quartersToShow.length === 1);
+      grid.innerHTML = html;
     }
 
 

@@ -397,6 +397,11 @@
     var SCOPES = ["Civils", "Roads", "Building", "Electrical", "Telecoms", "Mechanical", "Plant Hire"];
     var DIRECT_SCOPE_TARGETS = { "Civils": 105000000, "Roads": 106000000, "Building": 105000000, "Electrical": 202000000, "Telecoms": 75000000, "Mechanical": 100000000, "Plant Hire": 10000000 };
     var DIRECT_CONTRACT_TARGET_TOTAL = 703000000;
+    var GROUP_YTD_SCOPE_ACTUALS_OVERRIDE = {
+      "Civils": 15701260,
+      "Roads": 123982320.51,
+      "Electrical": 3718456.56
+    };
     var WINDOW_ENTITY_TARGETS = { "On Point": 225000000, "Nkanyezi": 15000000, "Aqua Telecoms": 87500000, "Distinct": 9000000 };
     var WINDOW_ENTITY_ACTUALS = { "On Point": 155061347.98, "Nkanyezi": 2.00, "Aqua Telecoms": 0, "Distinct": 0 };
     var EXECUTIVE_ENTITY_TARGETS = { "On Point": 480000000, "Aqua Telecoms": 175000000, "Nkanyezi": 30000000, "Distinct": 18000000 };
@@ -453,10 +458,10 @@
         { entity: "Distinct", actual: 0, target: 18000000 }
       ],
       directContractsByScope: [
-        { scope: "Civils", actual: 0, target: 105000000 },
-        { scope: "Roads", actual: 107810713.23, target: 106000000 },
+        { scope: "Civils", actual: 15701260, target: 105000000 },
+        { scope: "Roads", actual: 123982320.51, target: 106000000 },
         { scope: "Building", actual: 27830917.75, target: 105000000 },
-        { scope: "Electrical", actual: 19419717.00, target: 202000000 },
+        { scope: "Electrical", actual: 3718456.56, target: 202000000 },
         { scope: "Telecoms", actual: 0, target: 75000000 },
         { scope: "Mechanical", actual: 0, target: 100000000 },
         { scope: "Plant Hire", actual: 0, target: 10000000 }
@@ -991,7 +996,22 @@
         map[scope].awards += 1;
         map[scope].target = getPeriodTargetFromAnnual(DIRECT_SCOPE_TARGETS[scope] || rowTarget || 0);
       }
-      return Object.keys(map).map(function(k) { return map[k]; });
+      if (selectedPeriod === 'ALL' && typeof GROUP_YTD_SCOPE_ACTUALS_OVERRIDE !== 'undefined') {
+        for (var overrideScope in GROUP_YTD_SCOPE_ACTUALS_OVERRIDE) {
+          if (!Object.prototype.hasOwnProperty.call(GROUP_YTD_SCOPE_ACTUALS_OVERRIDE, overrideScope)) continue;
+          if (!map[overrideScope]) {
+            map[overrideScope] = {
+              scope: overrideScope,
+              actual: 0,
+              target: getPeriodTargetFromAnnual(DIRECT_SCOPE_TARGETS[overrideScope] || 0),
+              awards: 0
+            };
+          }
+          map[overrideScope].actual = Number(GROUP_YTD_SCOPE_ACTUALS_OVERRIDE[overrideScope] || 0);
+          map[overrideScope].awards = map[overrideScope].actual > 0 ? 1 : 0;
+        }
+      }
+      return Object.keys(map).filter(function(k) { return normalizeScopeName(k) !== 'Unknown'; }).map(function(k) { return map[k]; });
     }
 
     function renderPeriodFilterNote() {
@@ -1429,6 +1449,14 @@
 
       data.directContractsByEntity = Object.keys(entityMap).map(function(key) { return entityMap[key]; });
       data.directContractsByScope = Object.keys(scopeMap).map(function(key) { return scopeMap[key]; });
+      if (typeof GROUP_YTD_SCOPE_ACTUALS_OVERRIDE !== 'undefined') {
+        for (var d = 0; d < data.directContractsByScope.length; d++) {
+          var scopeName = normalizeScopeName(data.directContractsByScope[d].scope);
+          if (Object.prototype.hasOwnProperty.call(GROUP_YTD_SCOPE_ACTUALS_OVERRIDE, scopeName)) {
+            data.directContractsByScope[d].actual = Number(GROUP_YTD_SCOPE_ACTUALS_OVERRIDE[scopeName] || 0);
+          }
+        }
+      }
     }
 
     function renderKPIs() {

@@ -398,7 +398,7 @@
     var DIRECT_SCOPE_TARGETS = { "Civils": 105000000, "Roads": 106000000, "Building": 105000000, "Electrical": 202000000, "Telecoms": 75000000, "Mechanical": 100000000, "Plant Hire": 10000000 };
     var DIRECT_CONTRACT_TARGET_TOTAL = 703000000;
     var WINDOW_ENTITY_TARGETS = { "On Point": 225000000, "Nkanyezi": 15000000, "Aqua Telecoms": 87500000, "Distinct": 9000000 };
-    var WINDOW_ENTITY_ACTUALS = { "On Point": 135641631.90, "Nkanyezi": 2.00, "Aqua Telecoms": 0, "Distinct": 0 };
+    var WINDOW_ENTITY_ACTUALS = { "On Point": 155061347.98, "Nkanyezi": 2.00, "Aqua Telecoms": 0, "Distinct": 0 };
     var EXECUTIVE_ENTITY_TARGETS = { "On Point": 480000000, "Aqua Telecoms": 175000000, "Nkanyezi": 30000000, "Distinct": 18000000 };
     var CUMULATIVE_QUARTER_VALUE_TARGETS = { Q1: 175750000, Q2: 351500000, Q3: 527250000, Q4: 703000000 };
     var TENDERING_STRATEGY_TARGETS = [
@@ -429,21 +429,25 @@
 
     var data = {
       tenderSummary: [
-        { entity: "On Point", tenders: { MAR: 11, APR: 17 }, rfqs: { MAR: 20, APR: 8 }, awards: { MAR: 2, APR: 2 } },
-        { entity: "Nkanyezi", tenders: { MAR: 8, APR: 12 }, rfqs: { MAR: 28, APR: 2 }, awards: { MAR: 1, APR: 1 } },
+        { entity: "On Point", tenders: { MAR: 11, APR: 17, MAY: 12 }, rfqs: { MAR: 20, APR: 18, MAY: 6 }, awards: { MAR: 2, APR: 4, MAY: 2 } },
+        { entity: "Nkanyezi", tenders: { MAR: 8, APR: 11, MAY: 14 }, rfqs: { MAR: 28, APR: 16, MAY: 4 }, awards: { MAR: 1, APR: 1, MAY: 2 } },
         { entity: "Aqua Telecoms", tenders: { MAR: 5, APR: 11 }, rfqs: { MAR: 3, APR: 1 }, awards: { MAR: 0, APR: 0 } },
         { entity: "Distinct", tenders: { MAR: 3, APR: 4 }, rfqs: { MAR: 2, APR: 1 }, awards: { MAR: 0, APR: 0 } },
         { entity: "Aquatech", tenders: {}, rfqs: {}, awards: {} },
         { entity: "Advantedge", tenders: {}, rfqs: {}, awards: {} }
       ],
       awardsTargets: [
-        { entity: "On Point", target: 50, actual: 4 },
-        { entity: "Nkanyezi", target: 30, actual: 2 },
+        { entity: "On Point", target: 50, actual: 2, month: "MAR" },
+        { entity: "On Point", target: 0, actual: 4, month: "APR" },
+        { entity: "On Point", target: 0, actual: 2, month: "MAY" },
+        { entity: "Nkanyezi", target: 30, actual: 1, month: "MAR" },
+        { entity: "Nkanyezi", target: 0, actual: 1, month: "APR" },
+        { entity: "Nkanyezi", target: 0, actual: 2, month: "MAY" },
         { entity: "Aqua Telecoms", target: 24, actual: 0 },
         { entity: "Distinct", target: 10, actual: 0 }
       ],
       directContractsByEntity: [
-        { entity: "On Point", actual: 135641627.97, target: 480000000 },
+        { entity: "On Point", actual: 155061347.98, target: 480000000 },
         { entity: "Aqua Telecoms", actual: 0, target: 175000000 },
         { entity: "Nkanyezi", actual: 0, target: 30000000 },
         { entity: "Distinct", actual: 0, target: 18000000 }
@@ -451,8 +455,8 @@
       directContractsByScope: [
         { scope: "Civils", actual: 0, target: 105000000 },
         { scope: "Roads", actual: 107810713.23, target: 106000000 },
-        { scope: "Building", actual: 27830914.74, target: 105000000 },
-        { scope: "Electrical", actual: 0, target: 202000000 },
+        { scope: "Building", actual: 27830917.75, target: 105000000 },
+        { scope: "Electrical", actual: 19419717.00, target: 202000000 },
         { scope: "Telecoms", actual: 0, target: 75000000 },
         { scope: "Mechanical", actual: 0, target: 100000000 },
         { scope: "Plant Hire", actual: 0, target: 10000000 }
@@ -464,12 +468,14 @@
         { entity: "Distinct", actual: 0, target: 0 }
       ],
       directContracts: [
-        { Timestamp: "4/24/2026 9:00:12", Entity: "On Point", Scope: "Road", Value: 107810713.2, Target: 450000000, Month: "APR", CostCenter: "Onpoint", Notes: "", InputBy: "Bothwell", AwardedCompany: "City Of Cape Town", TenderRef: "Road Repairs" },
-        { Timestamp: "4/24/2026 10:33:35", Entity: "On Point", Scope: "Building", Value: 27830914.7, Target: 450000000, Month: "MAR", CostCenter: "Onpint", Notes: "", InputBy: "Bothwell", AwardedCompany: "Coega", TenderRef: "Amakhemfundo School Repairs" }
+        { Timestamp: "4/24/2026 9:00:12", Entity: "On Point", Scope: "Road", Value: 107810713.23, Target: 450000000, Month: "APR", CostCenter: "Onpoint", Notes: "", InputBy: "Bothwell", AwardedCompany: "City Of Cape Town", TenderRef: "Road Repairs" },
+        { Timestamp: "4/24/2026 10:33:35", Entity: "On Point", Scope: "Building", Value: 27830917.75, Target: 450000000, Month: "MAR", CostCenter: "Onpoint Ontime", Notes: "", InputBy: "Bothwell", AwardedCompany: "Coega", TenderRef: "Amakhemfundo School Repairs" },
+        { Timestamp: "5/25/2026 00:00:00", Entity: "On Point", Scope: "Electrical", Value: 19419717.00, Target: 480000000, Month: "MAY", CostCenter: "Onpoint Ontime", Notes: "Executive award input by Bothwell", InputBy: "Bothwell", AwardedCompany: "Eskom NTCSA", TenderRef: "Eskom NTCSA" }
       ],
       awardsDetail: [
-        { entity: "On Point", awardedCompany: "City Of Cape Town", description: "Road Repairs", scope: "Road", month: "APR", value: 107810713.2, tenderRef: "Road Repairs" },
-        { entity: "On Point", awardedCompany: "Coega", description: "Amakhemfundo School Repairs", scope: "Building", month: "MAR", value: 27830914.7, tenderRef: "Amakhemfundo School Repairs" }
+        { entity: "On Point", awardedCompany: "City Of Cape Town", description: "Road Repairs", scope: "Road", month: "APR", value: 107810713.23, tenderRef: "Road Repairs" },
+        { entity: "On Point", awardedCompany: "Coega", description: "Amakhemfundo School Repairs", scope: "Building", month: "MAR", value: 27830917.75, tenderRef: "Amakhemfundo School Repairs" },
+        { entity: "On Point", awardedCompany: "Eskom NTCSA", description: "Executive award input by Bothwell", scope: "Electrical", month: "MAY", value: 19419717.00, tenderRef: "Eskom NTCSA", CostCenter: "Onpoint Ontime", InputBy: "Bothwell" }
       ],
       pipeline: [
         { id: 1, opportunity: "Sample opportunity 1", entity: "On Point", scope: "Roads", stage: "Prospecting", value: 25000000, expectedMonth: "JUN" },
@@ -801,16 +807,16 @@
 
     function ensureMonthlyAwardsFromAwardTargets() {
       var awardMonthMap = {};
-      var contractRows = getDirectContractsRows();
 
-      for (var c = 0; c < contractRows.length; c++) {
-        var contract = contractRows[c];
-        var entity = getContractEntity(contract);
-        var month = getContractMonth(contract);
-
+      // Monthly award counts come from Awards_Targets so the YTD matrix and graphs
+      // stay aligned with the official award totals entered by month.
+      for (var a = 0; a < data.awardsTargets.length; a++) {
+        var award = data.awardsTargets[a];
+        var entity = getAwardEntity(award);
+        var month = getAwardMonth(award);
         if (!awardMonthMap[entity]) awardMonthMap[entity] = {};
         if (MONTHS.indexOf(month) > -1) {
-          awardMonthMap[entity][month] = Number(awardMonthMap[entity][month] || 0) + 1;
+          awardMonthMap[entity][month] = Number(awardMonthMap[entity][month] || 0) + getAwardActual(award);
         }
       }
 
@@ -1773,7 +1779,7 @@
         });
       }
       renderAll();
-      localStorage.setItem('tenderingDashboardDemoData', JSON.stringify(data));
+      localStorage.setItem('tenderingDashboardDemoData_updated_20260525', JSON.stringify(data));
       alert('Demo data saved locally.');
     }
 
@@ -1838,6 +1844,7 @@
       if (!Array.isArray(data.pipeline)) data.pipeline = [];
       if (!Array.isArray(data.directContracts)) data.directContracts = [];
       if (!Array.isArray(data.awardsDetail)) data.awardsDetail = [];
+      enforceOfficialMonthlyAwardUpdates();
     }
 
     function syncLiveData(showAlert) {
@@ -1856,7 +1863,7 @@
 
         connected = true;
         applyLivePayload(result);
-        try { localStorage.setItem('tenderingDashboardDemoData', JSON.stringify(data)); } catch (e) { console.error(e); }
+        try { localStorage.setItem('tenderingDashboardDemoData_updated_20260525', JSON.stringify(data)); } catch (e) { console.error(e); }
         renderAll();
         setStatus('Connected to live data', 'connected');
 
@@ -1870,7 +1877,74 @@
       });
     }
 
+
+    function enforceOfficialMonthlyAwardUpdates() {
+      // Official manual corrections requested on 2026-05-25:
+      // On Point awards must show separately by month: MAR 2, APR 4, MAY 2 = total 8.
+      // Nkanyezi awards must show separately by month: MAR 1, APR 1, MAY 2 = total 4.
+      var officialMonthly = {
+        "On Point": {
+          tenders: { MAR: 11, APR: 17, MAY: 12 },
+          rfqs: { MAR: 20, APR: 18, MAY: 6 },
+          awards: { MAR: 2, APR: 4, MAY: 2 },
+          target: 50
+        },
+        "Nkanyezi": {
+          tenders: { MAR: 8, APR: 11, MAY: 14 },
+          rfqs: { MAR: 28, APR: 16, MAY: 4 },
+          awards: { MAR: 1, APR: 1, MAY: 2 },
+          target: 30
+        }
+      };
+
+      for (var entityName in officialMonthly) {
+        if (!Object.prototype.hasOwnProperty.call(officialMonthly, entityName)) continue;
+        var official = officialMonthly[entityName];
+        var found = false;
+
+        for (var i = 0; i < data.tenderSummary.length; i++) {
+          if (normalizeEntityName(data.tenderSummary[i].entity || data.tenderSummary[i].Entity) === entityName) {
+            data.tenderSummary[i].entity = entityName;
+            data.tenderSummary[i].tenders = Object.assign({}, official.tenders);
+            data.tenderSummary[i].rfqs = Object.assign({}, official.rfqs);
+            data.tenderSummary[i].awards = Object.assign({}, official.awards);
+            found = true;
+          }
+        }
+
+        if (!found) {
+          data.tenderSummary.push({
+            entity: entityName,
+            tenders: Object.assign({}, official.tenders),
+            rfqs: Object.assign({}, official.rfqs),
+            awards: Object.assign({}, official.awards)
+          });
+        }
+      }
+
+      // Rebuild monthly Awards_Targets rows for these entities so charts, KPI cards,
+      // progress cards, YTD summaries, and the award matrix all use the same monthly totals.
+      var keptAwards = [];
+      for (var a = 0; a < data.awardsTargets.length; a++) {
+        var existingEntity = getAwardEntity(data.awardsTargets[a]);
+        if (existingEntity !== "On Point" && existingEntity !== "Nkanyezi") keptAwards.push(data.awardsTargets[a]);
+      }
+
+      var onPointMonths = officialMonthly["On Point"].awards;
+      keptAwards.push({ entity: "On Point", target: officialMonthly["On Point"].target, actual: onPointMonths.MAR, month: "MAR" });
+      keptAwards.push({ entity: "On Point", target: 0, actual: onPointMonths.APR, month: "APR" });
+      keptAwards.push({ entity: "On Point", target: 0, actual: onPointMonths.MAY, month: "MAY" });
+
+      var nkanyeziMonths = officialMonthly["Nkanyezi"].awards;
+      keptAwards.push({ entity: "Nkanyezi", target: officialMonthly["Nkanyezi"].target, actual: nkanyeziMonths.MAR, month: "MAR" });
+      keptAwards.push({ entity: "Nkanyezi", target: 0, actual: nkanyeziMonths.APR, month: "APR" });
+      keptAwards.push({ entity: "Nkanyezi", target: 0, actual: nkanyeziMonths.MAY, month: "MAY" });
+
+      data.awardsTargets = keptAwards;
+    }
+
     function renderAll() {
+      enforceOfficialMonthlyAwardUpdates();
       ensureMonthlyAwardsFromAwardTargets();
       rebuildDirectContractSummaries();
       renderConnection();
@@ -1941,7 +2015,7 @@
         data.pipeline = [];
       }
 
-      try { localStorage.setItem('tenderingDashboardDemoData', JSON.stringify(data)); } catch (e) { console.error(e); }
+      try { localStorage.setItem('tenderingDashboardDemoData_updated_20260525', JSON.stringify(data)); } catch (e) { console.error(e); }
       renderAll();
       alert(label + ' data deleted locally.');
     }
@@ -2012,9 +2086,9 @@
         });
       }
 
-      var saved = localStorage.getItem('tenderingDashboardDemoData');
+      var saved = localStorage.getItem('tenderingDashboardDemoData_updated_20260525');
       if (saved) {
-        try { data = JSON.parse(saved); } catch (e) { console.error(e); }
+        try { data = JSON.parse(saved); enforceOfficialMonthlyAwardUpdates(); } catch (e) { console.error(e); }
       }
 document.getElementById('saveDemoBtn').addEventListener('click', saveDemoData);
       document.getElementById('saveSheetsBtn').addEventListener('click', saveToGoogleSheets);

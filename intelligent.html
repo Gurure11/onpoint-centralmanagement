@@ -31,8 +31,14 @@
     .exec-lines .rowline strong{font-size:13px}
     .section-gap{margin-top:16px}
 
-    canvas{display:block;width:100% !important;max-width:100%;height:180px !important;max-height:180px;}
+    canvas{display:block;width:100% !important;max-width:100%;height:100% !important;}
     .chart-compact{position:relative;height:180px;max-height:180px;overflow:hidden;}
+    .chart-large{position:relative;height:620px;max-height:620px;overflow:hidden;}
+    .chart-mtd-manager{position:relative;height:372px;max-height:372px;overflow:hidden;}
+    .chart-mtd-cost-center{position:relative;height:372px;max-height:372px;overflow:hidden;}
+    .mtd-performance-key{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:8px 0 12px;font-size:12px;color:var(--muted)}
+    .mtd-key-item{display:inline-flex;align-items:center;gap:6px}
+    .mtd-key-swatch{width:14px;height:10px;border-radius:3px;display:inline-block}
 
 
     .hero-logo-wrap{display:flex;align-items:center;justify-content:center;min-height:150px;overflow:hidden}
@@ -277,8 +283,8 @@
         <div class="card"><h3 style="margin-top:0">Selected period totals</h3><div class="chart-compact"><canvas id="performanceSelectedTotalsChart" height="140"></canvas></div></div>
       </div>
       <div class="grid section-gap" style="grid-template-columns:1fr;">
-        <div class="card"><h3 style="margin-top:0">Project managers comparison: Actual vs Projected</h3><div class="chart-compact" style="height:520px;max-height:520px;"><canvas id="pmActualProjectedChart" height="480"></canvas></div></div>
-        <div class="card"><h3 style="margin-top:0">Project managers comparison: Actual vs Straight-line</h3><div class="chart-compact" style="height:520px;max-height:520px;"><canvas id="pmActualStraightlineChart" height="480"></canvas></div></div>
+        <div class="card"><h3 style="margin-top:0">Project managers comparison: Actual vs Projected</h3><div class="chart-large"><canvas id="pmActualProjectedChart" height="580"></canvas></div></div>
+        <div class="card"><h3 style="margin-top:0">Project managers comparison: Actual vs Straight-line</h3><div class="chart-large"><canvas id="pmActualStraightlineChart" height="580"></canvas></div></div>
       </div>
       <div class="grid two section-gap">
         <div class="card"><h3 style="margin-top:0">Performance by cost center</h3><div class="table-wrap"><table id="performanceCostCenterTable"></table></div></div>
@@ -3648,72 +3654,235 @@ function renderProgressCards(){
     </div>`;
   }).join('') || '');
 }
+function performanceGraphColor(pct){
+  const v = num(pct);
+  if (v >= 90) return '#111827';
+  if (v >= 75) return '#1d4ed8';
+  if (v >= 50) return '#15803d';
+  return '#b91c1c';
+}
+function selectedDateForPerformanceChart(){
+  if (state.filters.exactDate) return new Date(`${state.filters.exactDate}T00:00:00`);
+  if (state.filters.dateMonth !== '' && state.filters.dateMonth !== null && state.filters.dateMonth !== undefined) {
+    const y = Number(state.filters.dateYear || new Date().getFullYear());
+    return new Date(y, Number(state.filters.dateMonth), 1);
+  }
+  return new Date();
+}
+function performancePeriodBuckets(period = state.filters.period){
+  const ref = selectedDateForPerformanceChart();
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (period === 'Daily' || state.filters.exactDate) {
+    return [{ label: ref.toLocaleDateString('en-ZA',{day:'2-digit',month:'short'}), start: iso(ref), end: iso(new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()+1)) }];
+  }
+  if (period === 'Weekly') {
+    const start = new Date(ref); start.setDate(ref.getDate() - ref.getDay());
+    return Array.from({length:7}, (_,i)=>{ const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i); const e=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i+1); return { label:d.toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit'}), start:iso(d), end:iso(e) }; });
+  }
+  if (period === 'Quarterly') {
+    const qStart = startOfPeriod('Quarterly', ref);
+    return Array.from({length:3}, (_,i)=>{ const d=new Date(qStart.getFullYear(),qStart.getMonth()+i,1); const e=new Date(qStart.getFullYear(),qStart.getMonth()+i+1,1); return { label:d.toLocaleDateString('en-ZA',{month:'short'}), start:iso(d), end:iso(e) }; });
+  }
+  if (period === 'Yearly') {
+    const fy = startOfPeriod('Yearly', ref);
+    return Array.from({length:12}, (_,i)=>{ const d=new Date(fy.getFullYear(),fy.getMonth()+i,1); const e=new Date(fy.getFullYear(),fy.getMonth()+i+1,1); return { label:d.toLocaleDateString('en-ZA',{month:'short'}), start:iso(d), end:iso(e) }; });
+  }
+  const days = new Date(ref.getFullYear(), ref.getMonth()+1, 0).getDate();
+  return Array.from({length:days}, (_,i)=>{ const d=new Date(ref.getFullYear(),ref.getMonth(),i+1); const e=new Date(ref.getFullYear(),ref.getMonth(),i+2); return { label:String(i+1), start:iso(d), end:iso(e) }; });
+}
+function revenueRowMatchesDashboardFilters(row){
+  if (state.filters.division !== 'All' && normalizeCostCenterName(row.CostCenter) !== state.filters.division) return false;
+  if (state.filters.manager !== 'All' && !managerNamesMatch(row.Manager, state.filters.manager)) return false;
+  if (!filterMatchProject(row.ProjectName)) return false;
+  if (state.filters.search && !`${row.ProjectName} ${row.Manager} ${row.CostCenter}`.toLowerCase().includes(state.filters.search.toLowerCase())) return false;
+  return true;
+}
+function dateInBucket(dateValue, bucket){
+  const d = normaliseDate(dateValue);
+  return d && d >= bucket.start && d < bucket.end;
+}
 function ensureManagerDailyChartCard(){
   const panel = $('performancePanel');
   if (!panel || $('managerDailyPerformanceCard')) return;
-  const anchor = panel.querySelector('.grid.two.section-gap') || panel.lastElementChild;
   const card = document.createElement('div');
   card.className = 'card section-gap';
   card.id = 'managerDailyPerformanceCard';
-  card.innerHTML = '<h3 style="margin-top:0">Daily manager performance for the month</h3><div class="muted" style="margin-bottom:12px">Shows daily actual performance for the selected Project Manager during the current month.</div><div class="chart-compact" style="height:260px;max-height:260px;"><canvas id="managerDailyPerformanceChart" height="220"></canvas></div>';
-  panel.appendChild(card);
+  card.innerHTML = '<h3 id="managerDailyPerformanceTitle" style="margin-top:0">Daily manager performance</h3><div class="muted" id="managerDailyPerformanceNote" style="margin-bottom:12px">Actual values are shown as performance-coloured bars. Straight-line and projected budgets are shown as bars and contour lines.</div><div class="mtd-performance-key"><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#b91c1c"></span>Red bar: below 50%</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#15803d"></span>Green bar: 50% to 74%</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#1d4ed8"></span>Blue bar: 75% to 89%</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#111827"></span>Black bar: 90% to 100%+</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#800080"></span>Straight-line budget bar</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#8B4513"></span>Projected budget bar</span></div><div class="chart-mtd-manager"><canvas id="managerDailyPerformanceChart" height="348"></canvas></div>';
+  const firstGrid = panel.querySelector('.grid.two.section-gap');
+  if (firstGrid && firstGrid.nextSibling) panel.insertBefore(card, firstGrid.nextSibling); else panel.appendChild(card);
 }
+const actualInsideBarPlugin = {
+  id:'actualInsideBarPlugin',
+  afterDatasetsDraw(chart){
+    const ctx = chart.ctx;
+    const dsIndex = chart.data.datasets.findIndex(ds => ds.label === 'Actual');
+    if (dsIndex < 0) return;
+    const meta = chart.getDatasetMeta(dsIndex);
+    const values = chart.data.datasets[dsIndex].data || [];
+    ctx.save();
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    meta.data.forEach((bar, i) => {
+      const val = num(values[i]);
+      if (!bar || !val) return;
+      const p = bar.getProps(['x','y','base','width','height'], true);
+      const y = p.y + Math.max(12, p.height / 2);
+      const label = money(val);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, p.x, y);
+    });
+    ctx.restore();
+  }
+};
 function renderManagerDailyPerformanceChart(){
   ensureManagerDailyChartCard();
   if (charts.managerDailyPerformanceChart) { charts.managerDailyPerformanceChart.destroy(); charts.managerDailyPerformanceChart = null; }
   const card = $('managerDailyPerformanceCard');
   const canvas = $('managerDailyPerformanceChart');
   if (!card || !canvas || typeof Chart === 'undefined') return;
-  if (state.filters.manager === 'All') { card.style.display = 'none'; return; }
   card.style.display = '';
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const monthStart = new Date(year, month, 1);
-  const monthEnd = new Date(year, month + 1, 0);
-  const dayCount = monthEnd.getDate();
-  const rows = visibleRevenueRows().filter(r => {
-    const d = revenueRecordDateForPeriod(r);
-    if (!d) return false;
-    const dt = new Date(`${d}T00:00:00`);
-    return dt.getFullYear() === year && dt.getMonth() === month && managerNamesMatch(r.Manager, state.filters.manager);
+  const period = state.filters.period || 'Monthly';
+  const titleManager = state.filters.manager === 'All' ? 'All Project Managers' : state.filters.manager;
+  const buckets = state.filters.manager === 'All'
+    ? managerPerformanceSectionRows(period).map(r => ({ label:r.Manager, manager:r.Manager }))
+    : performancePeriodBuckets(period);
+  const rows = visibleRevenueRows().filter(revenueRowMatchesDashboardFilters);
+  const actualData = [];
+  const projectedData = [];
+  const straightData = [];
+  const pctData = [];
+  buckets.forEach(bucket => {
+    const bucketRows = rows.filter(r => bucket.manager ? managerNamesMatch(r.Manager, bucket.manager) : dateInBucket(revenueRecordDateForPeriod(r), bucket));
+    const actual = bucketRows.reduce((s,r)=>s + revenueActualValue(r), 0);
+    const projected = bucketRows.reduce((s,r)=>s + revenueProjectedValue(r, bucket.manager ? period : 'Daily'), 0);
+    const straight = bucketRows.reduce((s,r)=>s + revenueStraightlineValue(r, bucket.manager ? period : 'Daily'), 0);
+    const pct = straight ? Math.round((actual / straight) * 100) : (projected ? Math.round((actual / projected) * 100) : 0);
+    actualData.push(Math.round(actual));
+    projectedData.push(Math.round(projected));
+    straightData.push(Math.round(straight));
+    pctData.push(pct);
   });
-  const actualByDay = {};
-  const projectedByDay = {};
-  const straightByDay = {};
-  rows.forEach(r => {
-    const d = revenueRecordDateForPeriod(r);
-    const day = Number(String(d).slice(8,10));
-    actualByDay[day] = (actualByDay[day] || 0) + revenueActualValue(r);
-    projectedByDay[day] = (projectedByDay[day] || 0) + revenueProjectedValue(r, 'Daily');
-    straightByDay[day] = (straightByDay[day] || 0) + revenueStraightlineValue(r, 'Daily');
-  });
-  const labels = Array.from({length: dayCount}, (_, i) => String(i + 1));
+  const periodLabel = selectedPeriodMetricLabel(period);
+  $('managerDailyPerformanceTitle').textContent = `${periodLabel} manager performance - ${titleManager}`;
+  $('managerDailyPerformanceNote').textContent = state.filters.manager === 'All'
+    ? 'Filtered view by manager. Actual bars are colour-coded by performance; projected and straight-line budgets are shown as bars and contour lines.'
+    : `Filtered to ${titleManager}. The graph shows performance by ${period === 'Monthly' ? 'day of month' : period.toLowerCase()} with colour-coded actual bars and budget bars/contours.`;
   const ctx = canvas.getContext('2d');
   charts.managerDailyPerformanceChart = new Chart(ctx, {
-    type:'bar',
     data:{
-      labels,
+      labels:buckets.map(b => b.label),
       datasets:[
-        { label: 'Actual', data: labels.map(d => Math.round(actualByDay[Number(d)] || 0)), maxBarThickness:6, categoryPercentage:0.95, barPercentage:0.9 },
-        { label: 'Straight-line', data: labels.map(d => Math.round(straightByDay[Number(d)] || 0)), maxBarThickness:6, categoryPercentage:0.95, barPercentage:0.9 },
-        { label: 'Projected', data: labels.map(d => Math.round(projectedByDay[Number(d)] || 0)), maxBarThickness:6, categoryPercentage:0.95, barPercentage:0.9 }
+        {type:'bar', label:'Actual', data:actualData, backgroundColor:pctData.map(performanceGraphColor), borderColor:pctData.map(performanceGraphColor), borderWidth:1, maxBarThickness:18, order:4},
+        {type:'bar', label:'Straight-line budget', data:straightData, backgroundColor:'#800080', borderColor:'#800080', borderWidth:1, maxBarThickness:16, order:3},
+        {type:'bar', label:'Projected budget', data:projectedData, backgroundColor:'#8B4513', borderColor:'#8B4513', borderWidth:1, maxBarThickness:16, order:3},
+        {type:'line', label:'Straight-line budget contour', data:straightData, borderColor:'#f97316', backgroundColor:'#f97316', tension:0, pointRadius:1, borderWidth:2, fill:false, order:1},
+        {type:'line', label:'Projected budget contour', data:projectedData, borderColor:'#000000', backgroundColor:'#000000', tension:0, pointRadius:1, borderWidth:2, fill:false, order:0}
+      ]
+    },
+    plugins:[],
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:false,
+      normalized:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'bottom', labels:{boxWidth:10,padding:8}},
+        tooltip:{callbacks:{afterBody:(items)=>{ const i=items[0].dataIndex; return [`Performance: ${pctData[i]}%`, `Colour: ${pctData[i] >= 90 ? 'Black 90%+' : pctData[i] >= 75 ? 'Blue 75%+' : pctData[i] >= 50 ? 'Green 50%+' : 'Red below 50%'}`]; }}}
+      },
+      scales:{
+        x:{ticks:{autoSkip:true, maxTicksLimit:12, maxRotation:buckets.length>12 ? 45 : 0, minRotation:0, font:{size:10}}, title:{display:true,text:state.filters.manager === 'All' ? 'Project Manager' : periodLabel}},
+        y:{beginAtZero:true,ticks:{maxTicksLimit:5, font:{size:10}, callback:(value)=>{ const v=Number(value)||0; if (Math.abs(v)>=1000000) return 'R'+(v/1000000).toFixed(1)+'m'; if (Math.abs(v)>=1000) return 'R'+Math.round(v/1000)+'k'; return 'R'+v; }}}
+      }
+    }
+  });
+}
+
+function ensureCostCenterDailyTrendCard(){
+  const panel = $('performancePanel');
+  if (!panel || $('costCenterDailyTrendCard')) return;
+  const card = document.createElement('div');
+  card.className = 'card section-gap';
+  card.id = 'costCenterDailyTrendCard';
+  card.innerHTML = '<h3 id="costCenterDailyTrendTitle" style="margin-top:0">Cost center daily trend</h3><div class="muted" id="costCenterDailyTrendNote" style="margin-bottom:12px">Daily actuals are shown as performance-coloured bars. Straight-line and projected budgets are shown as bars and contour lines for the selected month.</div><div class="mtd-performance-key"><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#b91c1c"></span>Red bar: below 50%</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#15803d"></span>Green bar: 50% to 74%</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#1d4ed8"></span>Blue bar: 75% to 89%</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#111827"></span>Black bar: 90% to 100%+</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#800080"></span>Straight-line budget bar</span><span class="mtd-key-item"><span class="mtd-key-swatch" style="background:#8B4513"></span>Projected budget bar</span></div><div class="chart-mtd-cost-center"><canvas id="costCenterDailyTrendChart" height="348"></canvas></div>';
+  const existingCanvas = $('costCenterComparisonChart');
+  const existingCard = existingCanvas ? existingCanvas.closest('.card') : null;
+  if (existingCard && existingCard.nextSibling) existingCard.parentNode.insertBefore(card, existingCard.nextSibling);
+  else if (existingCard) existingCard.parentNode.appendChild(card);
+  else panel.appendChild(card);
+}
+function costCenterDailyTrendRows(){
+  const ref = selectedDateForPerformanceChart();
+  const days = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate();
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const monthBuckets = Array.from({length:days}, (_,i)=>{
+    const d = new Date(ref.getFullYear(), ref.getMonth(), i + 1);
+    const e = new Date(ref.getFullYear(), ref.getMonth(), i + 2);
+    return { label:String(i + 1), start:iso(d), end:iso(e) };
+  });
+  const rows = visibleRevenueRows().filter(revenueRowMatchesDashboardFilters);
+  return monthBuckets.map(bucket => {
+    const bucketRows = rows.filter(r => dateInBucket(revenueRecordDateForPeriod(r), bucket));
+    const actual = bucketRows.reduce((s,r)=>s + revenueActualValue(r), 0);
+    const projected = bucketRows.reduce((s,r)=>s + revenueProjectedValue(r, 'Daily'), 0);
+    const straight = bucketRows.reduce((s,r)=>s + revenueStraightlineValue(r, 'Daily'), 0);
+    const pct = straight ? Math.round((actual / straight) * 100) : (projected ? Math.round((actual / projected) * 100) : 0);
+    return { label:bucket.label, actual:Math.round(actual), projected:Math.round(projected), straight:Math.round(straight), pct };
+  });
+}
+function renderCostCenterDailyTrendChart(){
+  ensureCostCenterDailyTrendCard();
+  if (charts.costCenterDailyTrendChart) { charts.costCenterDailyTrendChart.destroy(); charts.costCenterDailyTrendChart = null; }
+  const card = $('costCenterDailyTrendCard');
+  const canvas = $('costCenterDailyTrendChart');
+  if (!card || !canvas || typeof Chart === 'undefined') return;
+  card.style.display = '';
+  const rows = costCenterDailyTrendRows();
+  const ref = selectedDateForPerformanceChart();
+  const monthLabel = ref.toLocaleDateString('en-ZA', { month:'long', year:'numeric' });
+  const centerLabel = state.filters.division === 'All' ? 'All Cost Centers' : state.filters.division;
+  $('costCenterDailyTrendTitle').textContent = `Cost center daily trend - ${centerLabel}`;
+  $('costCenterDailyTrendNote').textContent = `Daily trend for ${monthLabel}. Actual bars are colour-coded by performance against straight-line budget; projected and straight-line budgets are shown as bars and contour lines.`;
+  const ctx = canvas.getContext('2d');
+  charts.costCenterDailyTrendChart = new Chart(ctx, {
+    data:{
+      labels:rows.map(r => r.label),
+      datasets:[
+        {type:'bar', label:'Actual', data:rows.map(r=>r.actual), backgroundColor:rows.map(r=>performanceGraphColor(r.pct)), borderColor:rows.map(r=>performanceGraphColor(r.pct)), borderWidth:1, maxBarThickness:18, order:4},
+        {type:'bar', label:'Straight-line budget', data:rows.map(r=>r.straight), backgroundColor:'#800080', borderColor:'#800080', borderWidth:1, maxBarThickness:16, order:3},
+        {type:'bar', label:'Projected budget', data:rows.map(r=>r.projected), backgroundColor:'#8B4513', borderColor:'#8B4513', borderWidth:1, maxBarThickness:16, order:3},
+        {type:'line', label:'Straight-line budget contour', data:rows.map(r=>r.straight), borderColor:'#f97316', backgroundColor:'#f97316', tension:0, pointRadius:1, borderWidth:2, fill:false, order:1},
+        {type:'line', label:'Projected budget contour', data:rows.map(r=>r.projected), borderColor:'#000000', backgroundColor:'#000000', tension:0, pointRadius:1, borderWidth:2, fill:false, order:0}
       ]
     },
     options:{
       responsive:true,
       maintainAspectRatio:false,
       animation:false,
-      plugins:{ legend:{position:'bottom', labels:{boxWidth:10,padding:8}} },
+      normalized:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'bottom', labels:{boxWidth:10,padding:8}},
+        tooltip:{callbacks:{afterBody:(items)=>{ const i=items[0].dataIndex; const r=rows[i]; return [`Performance: ${r.pct}%`, `Actual vs Projected: ${r.projected ? Math.round((r.actual / r.projected) * 100) : 0}%`, `Actual vs Straight-line: ${r.straight ? Math.round((r.actual / r.straight) * 100) : 0}%`]; }}}
+      },
       scales:{
-        x:{ stacked:false, ticks:{ autoSkip:true, maxTicksLimit:16, maxRotation:0, minRotation:0, font:{size:9} }, title:{display:true,text:'Day of month'} },
-        y:{ beginAtZero:true, ticks:{maxTicksLimit:6, font:{size:10}} }
+        x:{ticks:{autoSkip:true, maxTicksLimit:16, maxRotation:0, minRotation:0, font:{size:10}}, title:{display:true,text:'Day of month'}},
+        y:{beginAtZero:true,ticks:{maxTicksLimit:5, font:{size:10}, callback:(value)=>{ const v=Number(value)||0; if (Math.abs(v)>=1000000) return 'R'+(v/1000000).toFixed(1)+'m'; if (Math.abs(v)>=1000) return 'R'+Math.round(v/1000)+'k'; return 'R'+v; }}}
       }
     }
   });
 }
+
 const _renderPerformanceSection_original = renderPerformanceSection;
-renderPerformanceSection = function(){ _renderPerformanceSection_original(); renderManagerDailyPerformanceChart(); };
+renderPerformanceSection = function(){ _renderPerformanceSection_original(); renderManagerDailyPerformanceChart(); renderCostCenterDailyTrendChart(); };
+
+const _destroyCharts_mtd_original = destroyCharts;
+destroyCharts = function(){
+  _destroyCharts_mtd_original();
+  ['managerDailyPerformanceChart','costCenterDailyTrendChart'].forEach(k => { if (charts[k]) { charts[k].destroy(); charts[k]=null; } });
+};
+
 const _financeCardHtml_original = financeCardHtml;
 financeCardHtml = function(label, snap){ return _financeCardHtml_original(selectedPeriodMetricLabel(label), snap); };
 

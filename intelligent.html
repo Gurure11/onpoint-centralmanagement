@@ -252,6 +252,7 @@
         <div class="card"><h3 style="margin-top:0">Gross profit by cost center pie</h3><div class="chart-compact"><canvas id="executiveGrossProfitPieChart" height="140"></canvas></div></div>
       </div>
       <div class="card section-gap"><h3 style="margin-top:0">Daily revenue history by date</h3><div class="table-wrap"><table id="executiveHistoryTable"></table></div></div>
+      <div class="card section-gap"><h3 style="margin-top:0">Daily Revenue Target Report</h3><div class="muted" style="margin-bottom:12px">Monthly targets from the Target tab compared with actual daily revenue by project manager.</div><div class="table-wrap"><table id="targetDashboardTable"></table></div></div>
       <div class="card section-gap">
         <h3 style="margin-top:0">View history snapshots</h3>
         <div class="snapshot-toolbar">
@@ -300,6 +301,20 @@
 
     <div class="panel" id="revenuePanel">
       <div class="card">
+        <div class="section-chip">Daily revenue target input</div>
+        <h3 style="margin-top:0">Save Monthly Target</h3>
+        <div class="revenue-form-shell">
+          <div class="form-grid">
+            <div class="field span-3"><label>Month</label><input id="targetMonth" type="month"></div>
+            <div class="field span-3"><label>Project Manager</label><select id="targetManager"></select></div>
+            <div class="field span-3"><label>Monthly Target</label><input id="targetAmount" type="number" min="0" step="0.01"></div>
+            <div class="field span-3"><label>Notes</label><input id="targetNotes" placeholder="Optional"></div>
+            <div class="field span-12"><button id="saveTargetBtn" type="button">Save Monthly Target</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px"><h3 style="margin-top:0">Target Report</h3><div class="muted" style="margin-bottom:12px">Saved targets from sheet tab Target.</div><div class="table-wrap"><table id="targetReportTable"></table></div></div>
+      <div class="card" style="margin-top:16px">
         <div class="section-chip">Daily revenue input</div>
         <h3 style="margin-top:0">Save Daily Revenue</h3>
         <div class="revenue-form-shell">
@@ -415,7 +430,7 @@ const ONPOINT_OVERRIDE_MONTHLY_PROJECTED = 34220381;
 const ONPOINT_OVERRIDE_MONTHLY_STRAIGHTLINE = 39556824;
 const GROUP_FIXED_MONTHLY_PROJECTED = 34220381;
 const GROUP_FIXED_MONTHLY_STRAIGHTLINE = 39556824;
-const state = { projects:[], revenue:[], invoices:[], payments:[], managerBudgets:[], orders:[], straightline:[], logins:[], currentUser:null, filters:{ period:'Monthly', division:'All', manager:'All', project:'All', search:'' } }; let charts = {};
+const state = { projects:[], revenue:[], invoices:[], payments:[], managerBudgets:[], orders:[], straightline:[], targets:[], logins:[], currentUser:null, filters:{ period:'Monthly', division:'All', manager:'All', project:'All', search:'' } }; let charts = {};
 const $ = id => document.getElementById(id);
 state.filters.dateMonth = '';
 state.filters.dateYear = '';
@@ -430,6 +445,9 @@ const lower = v => text(v).toLowerCase();
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const LOGIN_TAB_SHEET_ID = '1DqbP3DmLjTLWuLY6I4X_Xkpg30IkfPSqNVcbU_5WrEE';
+const TARGET_SHEET_ID = '1DqbP3DmLjTLWuLY6I4X_Xkpg30IkfPSqNVcbU_5WrEE';
+const TARGET_SHEET_NAME = 'Manager Dashboard';
+const TARGET_TAB_NAME = 'Target';
 const USER_SESSION_KEY = 'onpoint_dashboard_logged_in_user_v1';
 const LOCAL_REVENUE_APPROVALS_KEY = 'onpoint_dashboard_revenue_approvals_v1';
 function mapLoginRow(r){
@@ -772,11 +790,25 @@ function dateFilterMatches(dateValue){
   }
   return true;
 }
+function periodReferenceDate(){
+  if (state.filters.exactDate) {
+    const exact = new Date(`${state.filters.exactDate}T00:00:00`);
+    if (!isNaN(exact)) return exact;
+  }
+  if (state.filters.dateMonth !== '' && state.filters.dateMonth !== null && state.filters.dateMonth !== undefined) {
+    const year = Number(state.filters.dateYear || new Date().getFullYear());
+    const month = Number(state.filters.dateMonth);
+    const selected = new Date(year, month, 1);
+    if (!isNaN(selected)) return selected;
+  }
+  return new Date();
+}
 function inPeriod(dateValue, period){
   const d = new Date(`${normaliseDate(dateValue)}T00:00:00`);
   if (isNaN(d)) return false;
   if (!dateFilterMatches(dateValue)) return false;
-  return d >= startOfPeriod(period) && d < endOfPeriod(period);
+  const ref = periodReferenceDate();
+  return d >= startOfPeriod(period, ref) && d < endOfPeriod(period, ref);
 }
 function activeDateFilterLabel(){
   if (state.filters.exactDate) return `Specific date: ${formatDisplayDate(state.filters.exactDate)}`;
@@ -1872,6 +1904,7 @@ function populateFilters(){
   fillSelect('managerFilter', managers, state.filters.manager);
 
   fillSelect('revManager', allManagers);
+  fillSelect('targetManager', allManagers);
   fillSelect('projManager', allManagers);
   fillSelect('invManager', allManagers);
   fillSelect('payManager', allManagers);
@@ -2140,6 +2173,7 @@ function renderSummary(){
   ].map(([a,b,c])=>`<div class="kpi"><div class="label">${a}</div><div class="value">${b}</div><div class="sub">${c}</div></div>`).join('');
   const dailyRows = state.revenue.slice().sort((a,b)=>(a.Date < b.Date ? 1 : -1)).slice(0,100);
   if ($('dailyRevenueTransactionsTable')) buildTable($('dailyRevenueTransactionsTable'), [{label:'Date'},{label:'Manager'},{label:'CostCenter'},{label:'ProjectName'},{label:'Posted By'},{label:'Actuals',class:'right'},{label:'Budget',class:'right'},{label:'Daily Budget',class:'right'},{label:'Quality',class:'right'},{label:'Status'},{label:'Comments'},{label:'Actions'}], dailyRows.map(r => { const rowKey = escapeHtml(String(r.RowId || r.CreatedAt || (r.Date+'|'+r.ProjectName+'|'+r.Manager))); return [escapeHtml(r.Date), escapeHtml(r.Manager), escapeHtml(r.CostCenter), escapeHtml(r.ProjectName), escapeHtml(r.PostedBy || r.Manager), money(revenueActualValue(r)), money(revenueProjectedValue(r,'Monthly')), money(revenueProjectedValue(r,'Daily')), escapeHtml(r.Quality === '' ? '' : String(r.Quality)), `<span class="badge ${statusBadgeClass(r.ApprovalStatus || r.Status)}">${escapeHtml(normalizeApprovalStatus(r.ApprovalStatus || r.Status))}</span>`, escapeHtml([r.ManagerComment, r.SafetyManagerComment, r.Comment, r.Reason].filter(Boolean).join(' | ')), `<div class="approval-actions">${canApproveRevenue() ? `<button type="button" data-revenue-action="approve" data-row-key="${rowKey}">Approve</button><button type="button" class="secondary" data-revenue-action="warning" data-row-key="${rowKey}">Warning</button>` : ''}${canCommentRevenue() ? `<button type="button" class="secondary" data-revenue-action="comment" data-row-key="${rowKey}">Comment</button>` : ''}</div>`]; })); bindRevenueActionButtons();
+  renderTargetTables();
   buildTable($('projectsTable'), [{label:'CreatedAt'},{label:'Division'},{label:'Manager'},{label:'ProjectName'},{label:'Status'},{label:'TotalIncome',class:'right'}], filteredProjects().slice(0,100).map(r => [escapeHtml(r.CreatedAt), escapeHtml(r.Division), escapeHtml(r.Manager), escapeHtml(r.ProjectName), escapeHtml(r.Status), money(r.TotalIncome)]));
   buildTable($('invoicesTable'), [{label:'Date'},{label:'Manager'},{label:'ProjectName'},{label:'InvoiceNumber'},{label:'Amount',class:'right'},{label:'Paid'}], filteredInvoices().slice(0,100).map(r => [escapeHtml(r.Date), escapeHtml(r.Manager), escapeHtml(r.ProjectName), escapeHtml(r.InvoiceNumber), money(r.Amount), escapeHtml(r.PaymentReceived ? 'Yes' : 'No')]));
   if ($('paymentsJournalTable')) {
@@ -2372,6 +2406,121 @@ function monthlyStraightlineForRevenue(costCenter, manager, projectName, dateVal
   if (normalized === OVERRIDE_COST_CENTER) return num(ONPOINT_OVERRIDE_MONTHLY_STRAIGHTLINE);
   return 0;
 }
+
+function mapTargetRow(r){
+  return {
+    Month: text(r.Month || r.month || r.TargetMonth || r['Target Month'] || rowVal(r,0)),
+    Manager: text(r.Manager || r['Project Manager'] || r.ProjectManager || rowVal(r,1)),
+    Target: num(r.Target || r['Monthly Target'] || r.MonthlyTarget || r.Amount || rowVal(r,2)),
+    Notes: text(r.Notes || r.Note || r.Comment || rowVal(r,3)),
+    CreatedAt: text(r.CreatedAt || r.Timestamp || rowVal(r,4)),
+    PostedBy: text(r.PostedBy || r['Posted By'] || rowVal(r,5))
+  };
+}
+function targetMonthKey(value){
+  const raw = text(value);
+  if (!raw) return '';
+  const iso = normaliseDate(raw.length === 7 ? `${raw}-01` : raw);
+  if (!iso) return raw.slice(0,7);
+  return iso.slice(0,7);
+}
+function targetMonthLabel(value){
+  const key = targetMonthKey(value);
+  if (!key) return '';
+  const d = new Date(`${key}-01T00:00:00`);
+  if (isNaN(d)) return key;
+  return d.toLocaleString('en-ZA', { month:'long', year:'numeric' });
+}
+function revenueMonthKeyForTarget(row){
+  return targetMonthKey(revenueRecordDateForPeriod(row) || row.Date || row.CreatedAt);
+}
+async function fetchTargetRows(){
+  if (isPlaceholderUrl(SCRIPT_URL)) return [];
+  const actions = ['getTargets','getTarget','targets'];
+  let lastError = null;
+  for (const action of actions) {
+    try {
+      const url = `${SCRIPT_URL}?action=${encodeURIComponent(action)}&spreadsheetId=${encodeURIComponent(TARGET_SHEET_ID)}&targetSpreadsheetId=${encodeURIComponent(TARGET_SHEET_ID)}&workbookName=${encodeURIComponent(TARGET_SHEET_NAME)}&sheetName=${encodeURIComponent(TARGET_SHEET_NAME)}&tabName=${encodeURIComponent(TARGET_TAB_NAME)}&targetTab=${encodeURIComponent(TARGET_TAB_NAME)}&_=${Date.now()}`;
+      log('GET', url);
+      const resp = await withTimeoutFetch(url, getFetchOptions('GET'), 12000);
+      const payload = await parseJsonResponse(resp);
+      if (payload && payload.success === false) throw new Error(payload.error || `Failed to load ${action}`);
+      const rows = Array.isArray(payload) ? payload : (payload.rows || payload.data || []);
+      return Array.isArray(rows) ? rows.map(mapTargetRow) : [];
+    } catch(e) { lastError = e; log(`Target action failed: ${action}`, e.message); }
+  }
+  throw lastError || new Error('Target rows could not be loaded.');
+}
+function targetReportRows(){
+  const actualRows = visibleRevenueRows();
+  return (state.targets || []).map(t => {
+    const monthKey = targetMonthKey(t.Month);
+    const manager = text(t.Manager);
+    const actual = actualRows.filter(r => targetMonthKey(revenueMonthKeyForTarget(r)) === monthKey && lower(r.Manager) === lower(manager)).reduce((s,r)=>s+revenueActualValue(r),0);
+    const target = num(t.Target);
+    const pct = target ? Math.round((actual / target) * 100) : 0;
+    return Object.assign({}, t, { MonthKey: monthKey, Actual: actual, Variance: actual - target, AchievedPct: pct });
+  }).sort((a,b)=>String(b.MonthKey).localeCompare(String(a.MonthKey)) || String(a.Manager).localeCompare(String(b.Manager)));
+}
+function renderTargetTables(){
+  const rows = targetReportRows();
+  const tableRows = rows.map(r => [escapeHtml(targetMonthLabel(r.Month)), escapeHtml(r.Manager), money(r.Target), money(r.Actual), money(r.Variance), `<span class="badge ${perfBadgeClass(r.AchievedPct)}">${r.AchievedPct}%</span>`, escapeHtml(r.Notes)]);
+  const headers = [{label:'Month'},{label:'Project Manager'},{label:'Target',class:'right'},{label:'Actual',class:'right'},{label:'Variance',class:'right'},{label:'Achieved %',class:'right'},{label:'Notes'}];
+  if ($('targetReportTable')) buildTable($('targetReportTable'), headers, tableRows);
+  if ($('targetDashboardTable')) buildTable($('targetDashboardTable'), headers, tableRows.slice(0, 50));
+}
+async function saveTarget(){
+  if (!requireRole(canPostRevenue,'Only admin manager and users can save monthly targets.')) return;
+  const month = $('targetMonth')?.value || '';
+  const manager = $('targetManager')?.value || '';
+  const target = num($('targetAmount')?.value);
+  const notes = text($('targetNotes')?.value);
+  if (!month || !manager || target <= 0) return alert('Enter Month, Project Manager and Monthly Target first.');
+  const payload = {
+    action:'addTarget',
+    targetSpreadsheetId: TARGET_SHEET_ID,
+    spreadsheetId: TARGET_SHEET_ID,
+    workbookName: TARGET_SHEET_NAME,
+    sheetName: TARGET_SHEET_NAME,
+    tabName: TARGET_TAB_NAME,
+    targetTab: TARGET_TAB_NAME,
+    headerMode:'append_by_header',
+    orderedHeaders:['Month','Project Manager','Monthly Target','Notes','CreatedAt','Posted By'],
+    Month: month,
+    'Project Manager': manager,
+    'Monthly Target': target,
+    Notes: notes,
+    CreatedAt: new Date().toISOString(),
+    'Posted By': currentUserName(),
+    month,
+    manager,
+    monthlyTarget: target,
+    notes,
+    postedBy: currentUserName()
+  };
+  const btn = $('saveTargetBtn');
+  const old = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '⟳ Synchronising target...'; btn.classList.add('btn-loading'); }
+  try {
+    let res = null, lastError = null;
+    for (const actionName of ['addTarget','saveTarget','addTargetToManagerDashboard']) {
+      try { res = await postJsonToUrl(REVENUE_SAVE_URL, Object.assign({}, payload, { action: actionName })); lastError = null; break; }
+      catch(e) { lastError = e; }
+    }
+    if (lastError) throw lastError;
+    await loadData();
+    if ($('targetAmount')) $('targetAmount').value = '';
+    if ($('targetNotes')) $('targetNotes').value = '';
+    showToast(res.message || 'Monthly target saved to Target tab.','success');
+    alert(res.message || 'Monthly target saved to Target tab.');
+  } catch(e) {
+    showToast(`Target was not saved: ${e.message}`,'error');
+    alert(`Target was not saved.\n\n${e.message}`);
+  } finally {
+    if (btn) { btn.textContent = old; btn.classList.remove('btn-loading'); }
+  }
+}
+
 async function postJsonToUrl(url, payload){
   if (!url || /^PASTE_/i.test(url)) throw new Error('Paste the deployed Manager Dashboard Apps Script web app URL into REVENUE_SAVE_URL first.');
   const resp = await withTimeoutFetch(url, getFetchOptions('POST', payload), 45000);
@@ -2918,19 +3067,9 @@ function budgetDateInScope(dateValue, period = state.filters.period){
   if (!iso) return true;
   const d = new Date(`${iso}T00:00:00`);
   if (isNaN(d)) return true;
-  const now = new Date();
-  if (period === 'Daily' || period === 'Weekly' || period === 'Monthly') {
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }
-  if (period === 'Quarterly') {
-    const dq = Math.floor(d.getMonth() / 3);
-    const nq = Math.floor(now.getMonth() / 3);
-    return d.getFullYear() === now.getFullYear() && dq === nq;
-  }
-  if (period === 'Yearly') {
-    return d.getFullYear() === now.getFullYear();
-  }
-  return true;
+  if (!dateFilterMatches(iso)) return false;
+  const ref = periodReferenceDate();
+  return d >= startOfPeriod(period, ref) && d < endOfPeriod(period, ref);
 }
 function filteredBudgetRows(period = state.filters.period){
   return (Array.isArray(state.managerBudgets) ? state.managerBudgets : []).filter(r => {
@@ -3133,6 +3272,7 @@ async function loadData(){
     });
     state.orders = [];
     state.straightline = [];
+    try { state.targets = await fetchTargetRows(); } catch(targetErr) { state.targets = []; failures.push(`Target tab: ${targetErr.message}`); }
     populateFilters();
     renderAll();
     if (failures.length) {
@@ -3887,6 +4027,90 @@ const _financeCardHtml_original = financeCardHtml;
 financeCardHtml = function(label, snap){ return _financeCardHtml_original(selectedPeriodMetricLabel(label), snap); };
 
 
+
+
+/* === Fix monthly Daily Revenue totals ===
+   Some Apps Script responses expose different field names or array positions.
+   The dashboard must sum the money value from the Daily Revenue / Actuals
+   column for the whole selected month, not a small helper value like 8.
+*/
+function rawRevenueAmountCandidates(r){
+  const candidates = [
+    r && r['Daily Revenue'],
+    r && r.DailyRevenue,
+    r && r.dailyRevenue,
+    r && r['DailyRevenue'],
+    r && r.Actuals,
+    r && r['Actuals'],
+    r && r.Actual,
+    r && r['Actual'],
+    r && r.Amount,
+    r && r['Amount'],
+    rowVal(r,9),
+    rowVal(r,8),
+    rowVal(r,7)
+  ];
+  return candidates
+    .map(v => ({ raw:v, value:num(v) }))
+    .filter(x => String(x.raw ?? '').trim() !== '' && isFinite(x.value));
+}
+function pickRevenueActualAmount(r){
+  const explicit = [r && r['Daily Revenue'], r && r.DailyRevenue, r && r.dailyRevenue, r && r['DailyRevenue'], r && r.Actuals, r && r['Actuals'], rowVal(r,9)]
+    .map(v => ({ raw:v, value:num(v) }))
+    .filter(x => String(x.raw ?? '').trim() !== '' && isFinite(x.value));
+  if (explicit.length) {
+    const positive = explicit.filter(x => x.value > 0);
+    return positive.length ? positive[0].value : explicit[0].value;
+  }
+  const all = rawRevenueAmountCandidates(r).filter(x => x.value > 0);
+  if (!all.length) return 0;
+  return all.sort((a,b)=>b.value-a.value)[0].value;
+}
+mapRevenueRow = function(r){
+  const actualValue = pickRevenueActualAmount(r);
+  return repairRevenueShape({
+    Date: normaliseDate(r.Date || r.date || r.Timestamp || r.CreatedAt || rowVal(r,0)),
+    Manager: text(r.Manager || r.manager || r['Project Manager'] || r.ProjectManager || rowVal(r,3)),
+    CostCenter: normalizeCostCenterName(r.CostCenter || r.costCenter || r['Cost Center'] || r.Division || rowVal(r,1)),
+    ProjectName: text(r.ProjectName || r.projectName || r['Project Name'] || rowVal(r,4)),
+    Actual: actualValue,
+    Actuals: actualValue,
+    Amount: actualValue,
+    DailyRevenue: actualValue,
+    Category: text(r.Category || r.category || 'Daily Revenue'),
+    Quality: num(r.Quality || r.quality || 80),
+    Safety: num(r.Safety || r.safety || 0),
+    ApprovalStatus: text(r.ApprovalStatus || r['Approval Status'] || r.Status || 'Pending Approval'),
+    Status: text(r.Status || r.ApprovalStatus || r['Approval Status'] || 'Pending Approval'),
+    PostedBy: text(r.PostedBy || r.UserName || r.Username || rowVal(r,17)),
+    ManagerComment: text(r.ManagerComment || r['Manager Comment'] || rowVal(r,18)),
+    SafetyManagerComment: text(r.SafetyManagerComment || r['Safety Manager Comment'] || rowVal(r,19)),
+    Comment: text(r.Comment || rowVal(r,20)),
+    Reason: text(r.Reason || rowVal(r,21)),
+    RowId: text(r.RowId || r.ID || rowVal(r,22)),
+    Margin: num(r.Margin || r['Margin'])
+  });
+};
+revenueActualValue = function(r){ return pickRevenueActualAmount(r); };
+function revenueRowsForTargetMonth(monthKey, manager){
+  return visibleRevenueRows().filter(r => {
+    const rowMonth = targetMonthKey(revenueRecordDateForPeriod(r) || r.Date || r.CreatedAt);
+    if (rowMonth !== monthKey) return false;
+    if (manager && lower(r.Manager) !== lower(manager)) return false;
+    return true;
+  });
+}
+targetReportRows = function(){
+  return (state.targets || []).map(t => {
+    const monthKey = targetMonthKey(t.Month);
+    const manager = text(t.Manager);
+    const actual = revenueRowsForTargetMonth(monthKey, manager).reduce((s,r)=>s+revenueActualValue(r),0);
+    const target = num(t.Target);
+    const pct = target ? Math.round((actual / target) * 100) : 0;
+    return Object.assign({}, t, { MonthKey: monthKey, Actual: actual, Variance: actual - target, AchievedPct: pct });
+  }).sort((a,b)=>String(b.MonthKey).localeCompare(String(a.MonthKey)) || String(a.Manager).localeCompare(String(b.Manager)));
+};
+
 /* === Minimal fix: allow selected Month/Date filter to drive period rows ===
    When a specific month/year or exact date is selected, do not also restrict
    rows to the current Daily/Weekly/Monthly/Quarterly/Yearly window. This keeps
@@ -3903,7 +4127,7 @@ inPeriod = function(dateValue, period){
 
 /* === End custom dashboard patch === */
 
-function init(){ state.currentUser = null; try { localStorage.removeItem(USER_SESSION_KEY); } catch(e){} bindTabs(); wireFilters(); wireDateFilters(); wireProjectAdders(); wireExecutiveExports(); startDashboardClock(); $('testBtn').onclick = () => quickConnectionTest(); $('refreshBtn').onclick = () => loadData(); $('saveRevenueBtn').onclick = saveRevenue; $('saveProjectBtn').onclick = saveProject; $('saveInvoiceBtn').onclick = saveInvoice; $('savePaymentBtn').onclick = savePaymentReceived; if ($('loginBtn')) $('loginBtn').onclick = handleLogin; if ($('registerBtn')) $('registerBtn').onclick = handleRegisterButton; if ($('logoutBtn')) $('logoutBtn').onclick = logoutUser; if ($('dashboardLogoutBtn')) $('dashboardLogoutBtn').onclick = logoutUser; if ($('loginPassword')) $('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); }); if ($('loginUsername')) $('loginUsername').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); }); ['registerName','registerUsername','registerPassword','registerConfirmPassword'].forEach(id => { if ($(id)) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') registerUser(); }); }); $('revDate').value = $('projCreatedAt').value = $('invDate').value = $('payDate').value = todayISO(); $('periodFilter').innerHTML = PERIODS.map(p=>`<option ${p===state.filters.period?'selected':''}>${p}</option>`).join(''); if ($('revProjectName')) $('revProjectName').addEventListener('change', applyRememberedRevenueBudgets); if ($('revManager')) $('revManager').addEventListener('change', applyRememberedRevenueBudgets); if ($('revCostCenter')) $('revCostCenter').addEventListener('change', applyRememberedRevenueBudgets); $('diagnostics').textContent = 'Waiting for first load...'; applyRolePermissions(); setRegisterButtonState(); $('loginOverlay').classList.remove('login-hidden'); if ($('dashboardLogoutBtn')) $('dashboardLogoutBtn').classList.add('login-hidden'); }
+function init(){ state.currentUser = null; try { localStorage.removeItem(USER_SESSION_KEY); } catch(e){} bindTabs(); wireFilters(); wireDateFilters(); wireProjectAdders(); wireExecutiveExports(); startDashboardClock(); $('testBtn').onclick = () => quickConnectionTest(); $('refreshBtn').onclick = () => loadData(); $('saveRevenueBtn').onclick = saveRevenue; if ($('saveTargetBtn')) $('saveTargetBtn').onclick = saveTarget; $('saveProjectBtn').onclick = saveProject; $('saveInvoiceBtn').onclick = saveInvoice; $('savePaymentBtn').onclick = savePaymentReceived; if ($('loginBtn')) $('loginBtn').onclick = handleLogin; if ($('registerBtn')) $('registerBtn').onclick = handleRegisterButton; if ($('logoutBtn')) $('logoutBtn').onclick = logoutUser; if ($('dashboardLogoutBtn')) $('dashboardLogoutBtn').onclick = logoutUser; if ($('loginPassword')) $('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); }); if ($('loginUsername')) $('loginUsername').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); }); ['registerName','registerUsername','registerPassword','registerConfirmPassword'].forEach(id => { if ($(id)) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') registerUser(); }); }); $('revDate').value = $('projCreatedAt').value = $('invDate').value = $('payDate').value = todayISO(); if ($('targetMonth')) $('targetMonth').value = todayISO().slice(0,7); $('periodFilter').innerHTML = PERIODS.map(p=>`<option ${p===state.filters.period?'selected':''}>${p}</option>`).join(''); if ($('revProjectName')) $('revProjectName').addEventListener('change', applyRememberedRevenueBudgets); if ($('revManager')) $('revManager').addEventListener('change', applyRememberedRevenueBudgets); if ($('revCostCenter')) $('revCostCenter').addEventListener('change', applyRememberedRevenueBudgets); $('diagnostics').textContent = 'Waiting for first load...'; applyRolePermissions(); setRegisterButtonState(); $('loginOverlay').classList.remove('login-hidden'); if ($('dashboardLogoutBtn')) $('dashboardLogoutBtn').classList.add('login-hidden'); }
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>

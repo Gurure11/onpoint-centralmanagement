@@ -129,7 +129,7 @@
 
     /* Month/date quick filters */
     .date-filter-card{margin-top:16px}
-    .date-filter-grid{display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px;align-items:end}
+    .date-filter-grid{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:10px;align-items:end}
     .date-filter-grid button{padding:10px 12px;border-radius:12px}
     .date-filter-status{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700}
     .date-filter-status.green{background:var(--green-bg);color:var(--green)}
@@ -197,6 +197,7 @@
       <h3 style="margin-top:0">Month / Date View Filter</h3>
       <div class="date-filter-grid">
         <div class="field"><label>Month</label><select id="dateMonthFilter"><option value="">All months</option><option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option><option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option><option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option></select></div>
+        <div class="field"><label>Quarter</label><select id="dateQuarterFilter"><option value="">All quarters</option><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select></div>
         <div class="field"><label>Year</label><select id="dateYearFilter"><option value="">All years</option></select></div>
         <div class="field"><label>Specific date</label><input id="exactDateFilter" type="date"></div>
         <button id="thisMonthBtn" type="button">This Month</button>
@@ -433,6 +434,7 @@ const GROUP_FIXED_MONTHLY_STRAIGHTLINE = 39556824;
 const state = { projects:[], revenue:[], invoices:[], payments:[], managerBudgets:[], orders:[], straightline:[], targets:[], logins:[], currentUser:null, filters:{ period:'Monthly', division:'All', manager:'All', project:'All', search:'' } }; let charts = {};
 const $ = id => document.getElementById(id);
 state.filters.dateMonth = '';
+state.filters.dateQuarter = '';
 state.filters.dateYear = '';
 state.filters.exactDate = '';
 state.filters.dateQuick = '';
@@ -784,6 +786,11 @@ function dateFilterMatches(dateValue){
   const d = new Date(`${iso}T00:00:00`);
   if (isNaN(d)) return false;
   if (state.filters.exactDate) return iso === state.filters.exactDate;
+  if (state.filters.dateQuarter !== '' && state.filters.dateQuarter !== null && state.filters.dateQuarter !== undefined) {
+    const quarter = Math.floor(d.getMonth() / 3) + 1;
+    if (quarter !== Number(state.filters.dateQuarter)) return false;
+    if (state.filters.dateYear && d.getFullYear() !== Number(state.filters.dateYear)) return false;
+  }
   if (state.filters.dateMonth !== '' && state.filters.dateMonth !== null && state.filters.dateMonth !== undefined) {
     if (d.getMonth() !== Number(state.filters.dateMonth)) return false;
     if (state.filters.dateYear && d.getFullYear() !== Number(state.filters.dateYear)) return false;
@@ -794,6 +801,12 @@ function periodReferenceDate(){
   if (state.filters.exactDate) {
     const exact = new Date(`${state.filters.exactDate}T00:00:00`);
     if (!isNaN(exact)) return exact;
+  }
+  if (state.filters.dateQuarter !== '' && state.filters.dateQuarter !== null && state.filters.dateQuarter !== undefined) {
+    const year = Number(state.filters.dateYear || new Date().getFullYear());
+    const quarter = Number(state.filters.dateQuarter);
+    const selected = new Date(year, (quarter - 1) * 3, 1);
+    if (!isNaN(selected)) return selected;
   }
   if (state.filters.dateMonth !== '' && state.filters.dateMonth !== null && state.filters.dateMonth !== undefined) {
     const year = Number(state.filters.dateYear || new Date().getFullYear());
@@ -807,11 +820,15 @@ function inPeriod(dateValue, period){
   const d = new Date(`${normaliseDate(dateValue)}T00:00:00`);
   if (isNaN(d)) return false;
   if (!dateFilterMatches(dateValue)) return false;
+  if (state.filters.dateQuarter !== '' && state.filters.dateQuarter !== null && state.filters.dateQuarter !== undefined) return true;
   const ref = periodReferenceDate();
   return d >= startOfPeriod(period, ref) && d < endOfPeriod(period, ref);
 }
 function activeDateFilterLabel(){
   if (state.filters.exactDate) return `Specific date: ${formatDisplayDate(state.filters.exactDate)}`;
+  if (state.filters.dateQuarter !== '' && state.filters.dateQuarter !== null && state.filters.dateQuarter !== undefined) {
+    return `Q${state.filters.dateQuarter}${state.filters.dateYear ? ' ' + state.filters.dateYear : ''}`;
+  }
   if (state.filters.dateMonth !== '' && state.filters.dateMonth !== null && state.filters.dateMonth !== undefined) {
     const monthName = new Date(2000, Number(state.filters.dateMonth), 1).toLocaleString('en-ZA', { month:'long' });
     return `${monthName}${state.filters.dateYear ? ' ' + state.filters.dateYear : ''}`;
@@ -822,9 +839,10 @@ function updateDateFilterStatus(){
   const el = $('dateFilterStatus');
   if (!el) return;
   const hasExact = !!state.filters.exactDate;
+  const hasQuarter = state.filters.dateQuarter !== '' && state.filters.dateQuarter !== null && state.filters.dateQuarter !== undefined;
   const hasMonth = state.filters.dateMonth !== '' && state.filters.dateMonth !== null && state.filters.dateMonth !== undefined;
   el.textContent = activeDateFilterLabel();
-  el.className = 'date-filter-status ' + (hasExact ? 'red' : (hasMonth ? 'yellow' : 'green'));
+  el.className = 'date-filter-status ' + (hasExact ? 'red' : ((hasMonth || hasQuarter) ? 'yellow' : 'green'));
 }
 function populateDateYearFilter(){
   const el = $('dateYearFilter');
@@ -841,10 +859,12 @@ function setMonthDateFilter(monthOffset){
   d.setMonth(d.getMonth() + monthOffset);
   state.filters.exactDate = '';
   state.filters.dateMonth = String(d.getMonth());
+  state.filters.dateQuarter = '';
   state.filters.dateYear = String(d.getFullYear());
   state.filters.dateQuick = monthOffset === 0 ? 'thisMonth' : 'lastMonth';
   if ($('exactDateFilter')) $('exactDateFilter').value = '';
   if ($('dateMonthFilter')) $('dateMonthFilter').value = state.filters.dateMonth;
+  if ($('dateQuarterFilter')) $('dateQuarterFilter').value = '';
   populateDateYearFilter();
   if ($('dateYearFilter')) $('dateYearFilter').value = state.filters.dateYear;
   renderAll();
@@ -852,10 +872,12 @@ function setMonthDateFilter(monthOffset){
 function clearDateFilters(){
   state.filters.exactDate = '';
   state.filters.dateMonth = '';
+  state.filters.dateQuarter = '';
   state.filters.dateYear = '';
   state.filters.dateQuick = '';
   if ($('exactDateFilter')) $('exactDateFilter').value = '';
   if ($('dateMonthFilter')) $('dateMonthFilter').value = '';
+  if ($('dateQuarterFilter')) $('dateQuarterFilter').value = '';
   populateDateYearFilter();
   if ($('dateYearFilter')) $('dateYearFilter').value = '';
   renderAll();
@@ -865,8 +887,19 @@ function wireDateFilters(){
   if ($('dateMonthFilter')) $('dateMonthFilter').onchange = e => {
     state.filters.exactDate = '';
     state.filters.dateMonth = e.target.value;
+    state.filters.dateQuarter = '';
     state.filters.dateQuick = '';
     if ($('exactDateFilter')) $('exactDateFilter').value = '';
+    if ($('dateQuarterFilter')) $('dateQuarterFilter').value = '';
+    renderAll();
+  };
+  if ($('dateQuarterFilter')) $('dateQuarterFilter').onchange = e => {
+    state.filters.exactDate = '';
+    state.filters.dateMonth = '';
+    state.filters.dateQuarter = e.target.value;
+    state.filters.dateQuick = '';
+    if ($('exactDateFilter')) $('exactDateFilter').value = '';
+    if ($('dateMonthFilter')) $('dateMonthFilter').value = '';
     renderAll();
   };
   if ($('dateYearFilter')) $('dateYearFilter').onchange = e => {
@@ -878,9 +911,11 @@ function wireDateFilters(){
     state.filters.exactDate = e.target.value;
     if (e.target.value) {
       state.filters.dateMonth = '';
+      state.filters.dateQuarter = '';
       state.filters.dateYear = '';
       state.filters.dateQuick = '';
       if ($('dateMonthFilter')) $('dateMonthFilter').value = '';
+      if ($('dateQuarterFilter')) $('dateQuarterFilter').value = '';
       if ($('dateYearFilter')) $('dateYearFilter').value = '';
     }
     renderAll();

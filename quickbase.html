@@ -1131,6 +1131,50 @@
       .exec-section-page .status-stat-card h3, .exec-section-page .kpi-value { font-size:30px !important; }
       .exec-fab { right:14px !important; bottom:14px !important; padding:14px 18px !important; font-size:15px !important; }
     }
+
+
+    /* Targeted fix: match Claude artifact typography and keep data cards readable. */
+    body.exec-dashboard-theme,
+    body.exec-dashboard-theme .exec-shell,
+    body.exec-dashboard-theme .exec-section-page {
+      font-size: 18px !important;
+      line-height: 1.45 !important;
+    }
+    body.exec-dashboard-theme .exec-section-page table,
+    body.exec-dashboard-theme .exec-section-page td,
+    body.exec-dashboard-theme .exec-section-page .description-preview,
+    body.exec-dashboard-theme .exec-section-page .description-full {
+      font-size: 18px !important;
+    }
+    body.exec-dashboard-theme .exec-section-page input,
+    body.exec-dashboard-theme .exec-section-page select,
+    body.exec-dashboard-theme .exec-section-page textarea {
+      font-size: 16px !important;
+    }
+    body.exec-dashboard-theme .exec-section-page th,
+    body.exec-dashboard-theme .exec-label,
+    body.exec-dashboard-theme .exec-section-title {
+      font-size: 13px !important;
+    }
+    body.exec-dashboard-theme .exec-section-page .btn-primary,
+    body.exec-dashboard-theme .exec-section-page .btn-secondary,
+    body.exec-dashboard-theme .exec-section-page .refresh-btn {
+      font-size: 15px !important;
+    }
+    body.exec-dashboard-theme canvas,
+    body.exec-dashboard-theme .exec-chart {
+      cursor: pointer !important;
+    }
+    @media (max-width: 860px) {
+      body.exec-dashboard-theme,
+      body.exec-dashboard-theme .exec-shell,
+      body.exec-dashboard-theme .exec-section-page,
+      body.exec-dashboard-theme .exec-section-page table,
+      body.exec-dashboard-theme .exec-section-page td {
+        font-size: 16px !important;
+      }
+    }
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -2564,16 +2608,35 @@ Please log in to QuickBase to continue.`;
   }
 
   async function renderSentTickets() {
-    const sentTicketsRaw = await safeGet('sentTickets');
+    const [sentTicketsRaw, ticketsRaw, automatedRaw] = await Promise.all([
+      safeGet('sentTickets'),
+      safeGet('tickets'),
+      safeGet('automatedTasks')
+    ]);
     const currentName = getCurrentUserName();
     const currentEmail = String(currentUser?.Email || '').trim().toLowerCase();
+    const rowsFromRoutes = [
+      ...(Array.isArray(sentTicketsRaw) ? sentTicketsRaw : []),
+      ...(Array.isArray(ticketsRaw) ? ticketsRaw : []),
+      ...(Array.isArray(automatedRaw) ? automatedRaw : [])
+    ];
+    const issuerNameKeys = ['Created By','createdBy','CreatedBy','Issued By','Issuer','Requested By','Requester','Submitted By','Originator','Task Issuer','Assigned By'];
+    const issuerEmailKeys = ['Created By Email','createdByEmail','CreatedByEmail','Issued By Email','Issuer Email','Requested By Email','Requester Email','Submitted By Email','Originator Email','Task Issuer Email','Assigned By Email'];
     const isIssuedByMe = t => {
-      const issuerName = getTaskIssuerName(t);
-      const issuerEmail = getTaskIssuerEmail(t);
-      return isSamePerson(currentName, issuerName) || (currentEmail && currentEmail === issuerEmail);
+      const issuerName = getTaskIssuerName(t) || issuerNameKeys.map(k => t?.[k]).find(Boolean) || '';
+      const issuerEmail = getTaskIssuerEmail(t) || getRowEmail(t, issuerEmailKeys);
+      if (currentEmail && issuerEmail && currentEmail === issuerEmail) return true;
+      if (currentName && issuerName && isSamePerson(currentName, issuerName)) return true;
+      return false;
     };
-    const sentRows = Array.isArray(sentTicketsRaw) ? sentTicketsRaw.filter(isIssuedByMe) : [];
-    renderSimpleTable('Tickets Sent Out', sentRows, ['Ticket ID','Title','Task Description','Priority','Status','Department','Cost Center','Assigned To','Due Date','Task Response','Proof Link'], 'Sent_Tickets');
+    const seen = new Set();
+    const sentRows = rowsFromRoutes.filter(isIssuedByMe).filter(row => {
+      const key = getTicketIdentity(row) || getAutomatedTaskIdentity(row) || JSON.stringify(row);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    renderSimpleTable('Tickets Sent Out', sentRows, ['Ticket ID','Title','Task Description','Priority','Status','Department','Cost Center','Assigned To','Due Date','Task Response','Proof Link'], 'Tasks');
   }
 
   function dedupeMoreTimeApprovalRows(rows) {
@@ -2952,9 +3015,9 @@ Please log in to QuickBase and action it urgently.`
     const reviewCount = visibleRows.filter(execDashIsReviewRow).length;
     const moreTimeCount = visibleRows.filter(r => String(r.Status || r.status || '').toLowerCase().includes('more time')).length;
     const statusCtx = document.getElementById('execStatusChart');
-    if (statusCtx) charts.execStatusChart = new Chart(statusCtx, { type: 'doughnut', data: { labels: ['Open', 'Awaiting review', 'More time'], datasets: [{ data: [Math.max(openCount - reviewCount - moreTimeCount, 0), reviewCount, moreTimeCount], backgroundColor: ['#b7daf2','#0ea5e9','#c8891f'], borderWidth: 0 }] }, options: { cutout: '66%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#5f6b7e', font: { size: 13, weight: '700' } } }, tooltip: { enabled: true } } } });
+    if (statusCtx) charts.execStatusChart = new Chart(statusCtx, { type: 'doughnut', data: { labels: ['Open', 'Awaiting review', 'More time'], datasets: [{ data: [Math.max(openCount - reviewCount - moreTimeCount, 0), reviewCount, moreTimeCount], backgroundColor: ['#b7daf2','#0ea5e9','#c8891f'], borderWidth: 0 }] }, options: { cutout: '66%', onClick: chartClickHandler('status'), plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#5f6b7e', font: { size: 13, weight: '700' } } }, tooltip: { enabled: true } } } });
     const priorityCtx = document.getElementById('execPriorityChart');
-    if (priorityCtx) charts.execPriorityChart = new Chart(priorityCtx, { type: 'doughnut', data: { labels: ['Critical','High','Medium','Low'], datasets: [{ data: ['Critical','High','Medium','Low'].map(k => priorityCounts[k] || priorityCounts[k.toLowerCase()] || 0), backgroundColor: ['#dc3f43','#c8891f','#0ea5e9','#b7daf2'], borderWidth: 0 }] }, options: { cutout: '66%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#5f6b7e', font: { size: 13, weight: '700' } } } } } });
+    if (priorityCtx) charts.execPriorityChart = new Chart(priorityCtx, { type: 'doughnut', data: { labels: ['Critical','High','Medium','Low'], datasets: [{ data: ['Critical','High','Medium','Low'].map(k => priorityCounts[k] || priorityCounts[k.toLowerCase()] || 0), backgroundColor: ['#dc3f43','#c8891f','#0ea5e9','#b7daf2'], borderWidth: 0 }] }, options: { cutout: '66%', onClick: chartClickHandler('priority'), plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#5f6b7e', font: { size: 13, weight: '700' } } } } } });
     const now = new Date(); now.setHours(0,0,0,0);
     let onTime = 0, oneTwo = 0, threeFive = 0, sixPlus = 0;
     visibleRows.filter(r => !isClosedTicket(r)).forEach(row => {
@@ -2964,7 +3027,7 @@ Please log in to QuickBase and action it urgently.`
       if (d <= 2) oneTwo++; else if (d <= 5) threeFive++; else sixPlus++;
     });
     const ageCtx = document.getElementById('execAgeingChart');
-    if (ageCtx) charts.execAgeingChart = new Chart(ageCtx, { type: 'doughnut', data: { labels: ['On-time','1-2d','3-5d','6+d'], datasets: [{ data: [onTime, oneTwo, threeFive, sixPlus], backgroundColor: ['#22a774','#e6b34e','#c8891f','#dc3f43'], borderWidth: 0 }] }, options: { cutout: '66%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#5f6b7e', font: { size: 13, weight: '700' } } } } } });
+    if (ageCtx) charts.execAgeingChart = new Chart(ageCtx, { type: 'doughnut', data: { labels: ['On-time','1-2d','3-5d','6+d'], datasets: [{ data: [onTime, oneTwo, threeFive, sixPlus], backgroundColor: ['#22a774','#e6b34e','#c8891f','#dc3f43'], borderWidth: 0 }] }, options: { cutout: '66%', onClick: chartClickHandler('age'), plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#5f6b7e', font: { size: 13, weight: '700' } } } } } });
   }
 
   async function renderDashboard() {
@@ -3265,6 +3328,10 @@ Please log in to QuickBase to review and update this item.`
         reminderOnDueDay: document.getElementById('autoReminderOnDay').value,
         reminderEmailTo: document.getElementById('autoAssigneeEmail').value,
         reminderSchedule: `Monthly on day ${document.getElementById('autoDayOfMonth').value}; email 1 day before and on due day`,
+        createdBy: currentUser?.['Full Name'] || currentUser?.Email || '',
+        'Created By': currentUser?.['Full Name'] || currentUser?.Email || '',
+        createdByEmail: currentUser?.Email || '',
+        'Created By Email': currentUser?.Email || '',
         sheetTab: 'Automated Tasks'
       };
       Object.assign(payload, buildTaskEmailPayload('automated', payload));
@@ -3277,11 +3344,28 @@ Please log in to QuickBase to review and update this item.`
 
 
   function openTicketsFromChart(filterType, label) {
+    const cleanLabel = String(label || '').trim();
+    const lower = cleanLabel.toLowerCase();
     window.taskFilter = null;
     window.ticketPriorityFilter = '';
     window.ticketDepartmentFilter = '';
-    if (filterType === 'priority') window.ticketPriorityFilter = label || '';
-    if (filterType === 'department') window.ticketDepartmentFilter = label || '';
+    window.ticketAgeFilter = '';
+
+    if (filterType === 'priority') {
+      window.ticketPriorityFilter = cleanLabel;
+    } else if (filterType === 'department') {
+      window.ticketDepartmentFilter = cleanLabel;
+    } else if (filterType === 'status') {
+      if (lower.includes('awaiting') || lower.includes('review')) window.taskFilter = 'review';
+      else if (lower.includes('more time')) window.taskFilter = 'more-time';
+      else if (lower.includes('open')) window.taskFilter = 'open';
+    } else if (filterType === 'age') {
+      if (lower.includes('on-time') || lower.includes('on time')) window.taskFilter = 'open-on-time';
+      else {
+        window.taskFilter = 'overdue';
+        window.ticketAgeFilter = lower;
+      }
+    }
     currentSection = 'tickets';
     loadCurrentSection();
   }
@@ -4605,14 +4689,30 @@ Please log in to QuickBase, open Tickets, score if required, and close the task 
     else if (window.taskFilter === 'overdue') data = stats.openLate;
     else if (window.taskFilter === 'closed-on-time') data = stats.closedOnTime;
     else if (window.taskFilter === 'closed-late') data = stats.closedLate;
-    if (window.ticketPriorityFilter) data = data.filter(row => getPriority(row) === window.ticketPriorityFilter);
+    else if (window.taskFilter === 'review') data = visibleTicketRows.filter(execDashIsReviewRow);
+    else if (window.taskFilter === 'more-time') data = visibleTicketRows.filter(row => String(row.Status || row.status || '').toLowerCase().includes('more time'));
+    else if (window.taskFilter === 'open-on-time') data = stats.open.filter(row => !stats.openLate.some(late => (getTicketIdentity(late) || getAutomatedTaskIdentity(late)) === (getTicketIdentity(row) || getAutomatedTaskIdentity(row))));
+    if (window.ticketPriorityFilter) data = data.filter(row => String(getPriority(row)).toLowerCase() === String(window.ticketPriorityFilter).toLowerCase());
     if (window.ticketDepartmentFilter) data = data.filter(row => getDepartment(row) === window.ticketDepartmentFilter);
+    if (window.ticketAgeFilter) {
+      const now = new Date(); now.setHours(0,0,0,0);
+      data = data.filter(row => {
+        const due = dateOnly(getTaskDueDate(row));
+        if (!due || due >= now) return false;
+        const daysLate = Math.floor((now - due) / 86400000);
+        const age = String(window.ticketAgeFilter || '').toLowerCase();
+        if (age.includes('1-2')) return daysLate >= 1 && daysLate <= 2;
+        if (age.includes('3-5')) return daysLate >= 3 && daysLate <= 5;
+        if (age.includes('6')) return daysLate >= 6;
+        return true;
+      });
+    }
 
     const columns = ['Ticket ID', 'Title', 'Task Description', 'Priority', 'Status', 'Department', 'Assigned To', 'Due Date', 'Task Response', 'Proof Link'];
     const automatedTaskColumns = ['Ticket ID', 'Task ID', 'Task Name', 'Description', 'Frequency', 'Department', 'Next Run', 'Status'];
     window.currentTicketRows = [...data, ...automatedTaskRows];
     const main = document.getElementById('mainContent');
-    const chartFilterText = window.ticketPriorityFilter ? `Priority: ${window.ticketPriorityFilter}` : (window.ticketDepartmentFilter ? `Department: ${window.ticketDepartmentFilter}` : '');
+    const chartFilterText = window.ticketPriorityFilter ? `Priority: ${window.ticketPriorityFilter}` : (window.ticketDepartmentFilter ? `Department: ${window.ticketDepartmentFilter}` : (window.ticketAgeFilter ? `Ageing: ${window.ticketAgeFilter}` : ''));
     const activeFilterText = window.taskFilter ? `Filtered: ${window.taskFilter.replace(/-/g, ' ')}` : (chartFilterText || 'All tickets');
     const ticketTablePanel = `<div class="panel"><div class="panel-header"><h2>📋 Tickets</h2></div><div class="table-wrapper"><table><thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}<th>Action</th></tr></thead><tbody>${data.length ? data.map((row, index) => `<tr>${columns.map(c => `<td>${renderTaskCellHtml(row, c)}</td>`).join('')}<td>${ticketActionHtml(row, index)}</td></tr>`).join('') : `<tr><td colspan="${columns.length + 1}" style="text-align:center">No data found</td></tr>`}</tbody></table></div></div>`;
 
@@ -5017,7 +5117,7 @@ async function loadCurrentSection() {
       link.classList.remove('active');
       if (link.getAttribute('data-section') === currentSection) link.classList.add('active');
     });
-    if (currentSection !== 'tickets') { window.taskFilter = null; window.ticketPriorityFilter = ''; window.ticketDepartmentFilter = ''; }
+    if (currentSection !== 'tickets') { window.taskFilter = null; window.ticketPriorityFilter = ''; window.ticketDepartmentFilter = ''; window.ticketAgeFilter = ''; }
     updateScoringBasketBadge();
   }
 

@@ -1462,6 +1462,11 @@
                     <span>Documents</span>
                     <span class="badge" id="docCount">0</span>
                 </a>
+                <a class="nav-item" data-page="sharedfiles">
+                    <i class="fas fa-link"></i>
+                    <span>Shared Files</span>
+                    <span class="badge" id="sharedCount">0</span>
+                </a>
                 <a class="nav-item" data-page="incidents">
                     <i class="fas fa-triangle-exclamation"></i>
                     <span>Incidents</span>
@@ -1589,7 +1594,7 @@
             SHEET_ID: '1k96YHfBB9R5CYxJZER6aG8xGz2tPJKEdc4N6emXJevk',
             SHEET_NAME: 'SHEQ-reports',
             // IMPORTANT: Replace with your actual deployed Apps Script URL
-            APPSCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzdaxflZlAJFneFfqhN_okKP3w2ZuJMeXNtoK-ZNxzyLB2AUJtti3-CKT1usbqzhYSK/exec',
+            APPSCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwlj5jN9AH37R4l1jb9B2V7DbCpKw5MnF_I30h1XBJ961Sn3yDE8zRGekO2EeOrvl6fpQ/exec',
             USE_MOCK: false, // Set to false when Apps Script is deployed
         };
 
@@ -1603,12 +1608,14 @@
             currentPage: 'dashboard',
             data: {
                 documents: [],
+                sharedfiles: [],
                 incidents: [],
                 inspections: [],
                 audits: [],
                 training: [],
             },
             loading: false,
+            users: [],
             modalCallback: null,
         };
 
@@ -1646,6 +1653,7 @@
             userRole: $('#userRole'),
             logoutBtn: $('#logoutBtn'),
             docCount: $('#docCount'),
+            sharedCount: $('#sharedCount'),
             incidentCount: $('#incidentCount'),
             modalOverlay: $('#modalOverlay'),
             modal: $('#modal'),
@@ -1706,6 +1714,38 @@
                 'toolbox_talk': 'Toolbox Talk',
             };
             return map[type] || type;
+        }
+
+
+        function isManagerUser() {
+            const role = String(state.user?.role || '').toLowerCase();
+            return role.includes('admin') || role.includes('manager') || role.includes('supervisor');
+        }
+
+        function normalizeEmailList(value) {
+            return String(value || '').split(/[,;\n]+/).map(v => v.trim().toLowerCase()).filter(Boolean);
+        }
+
+        function getUserOptions(selected = '') {
+            const selectedList = normalizeEmailList(selected);
+            return (state.users || []).map(u => {
+                const email = String(u.email || u.Email || '').trim();
+                const name = String(u.name || u.Name || email).trim();
+                if (!email) return '';
+                const isSelected = selectedList.includes(email.toLowerCase()) ? 'selected' : '';
+                return `<option value="${email}" ${isSelected}>${name} (${email})</option>`;
+            }).join('');
+        }
+
+        function getSharedRecipientsText(item) {
+            const emails = normalizeEmailList(item.sharedWithEmails || item.SharedWithEmails || '');
+            if (!emails.length) return 'Managers only';
+            if (emails.includes('*')) return 'All users';
+            return emails.join(', ');
+        }
+
+        function getFileLink(item) {
+            return item.fileUrl || item.linkUrl || item.url || '';
         }
 
         function generateId() {
@@ -1910,7 +1950,7 @@
         async function loadAllData() {
             state.loading = true;
             try {
-                const sheets = ['documents', 'incidents', 'inspections', 'audits', 'training'];
+                const sheets = ['documents', 'sharedfiles', 'incidents', 'inspections', 'audits', 'training'];
                 for (const sheet of sheets) {
                     const result = await apiRequest('get', sheet);
                     if (result.success !== false) {
@@ -1918,6 +1958,10 @@
                     } else {
                         state.data[sheet] = [];
                     }
+                }
+                const usersResult = await apiRequest('getUsers', 'Users');
+                if (usersResult && usersResult.success !== false) {
+                    state.users = Array.isArray(usersResult) ? usersResult : (usersResult.data || []);
                 }
                 updateBadges();
                 renderPage(state.currentPage);
@@ -1930,8 +1974,10 @@
 
         function updateBadges() {
             const docCount = state.data.documents?.length || 0;
+            const sharedCount = state.data.sharedfiles?.length || 0;
             const incidentCount = state.data.incidents?.length || 0;
             DOM.docCount.textContent = docCount;
+            if (DOM.sharedCount) DOM.sharedCount.textContent = sharedCount;
             DOM.incidentCount.textContent = incidentCount;
         }
 
@@ -1950,6 +1996,7 @@
             const titles = {
                 dashboard: { title: 'Dashboard', subtitle: 'Overview of your SHEQ system' },
                 documents: { title: 'Documents', subtitle: 'Manage policies, procedures, and records' },
+                sharedfiles: { title: 'Shared Files', subtitle: 'Paste links, save them, and control which users can access them' },
                 incidents: { title: 'Incidents', subtitle: 'Track accidents, near misses, and more' },
                 inspections: { title: 'Inspections', subtitle: 'Site, equipment, and PPE inspections' },
                 audits: { title: 'Audits', subtitle: 'Internal and external compliance audits' },
@@ -1968,6 +2015,9 @@
                     break;
                 case 'documents':
                     renderDocuments(renderer);
+                    break;
+                case 'sharedfiles':
+                    renderSharedFiles(renderer);
                     break;
                 case 'incidents':
                     renderIncidents(renderer);
@@ -1998,6 +2048,7 @@
 
         function renderDashboard(container) {
             const docs = state.data.documents || [];
+            const sharedFiles = state.data.sharedfiles || [];
             const incidents = state.data.incidents || [];
             const inspections = state.data.inspections || [];
             const audits = state.data.audits || [];
@@ -2007,6 +2058,7 @@
 
             const stats = [
                 { label: 'Documents', value: docs.length, icon: 'fa-file-lines', color: 'blue' },
+                { label: 'Shared Files', value: sharedFiles.length, icon: 'fa-link', color: 'purple' },
                 { label: 'Incidents', value: incidents.length, icon: 'fa-triangle-exclamation', color: 'red' },
                 { label: 'Inspections', value: inspections.length, icon: 'fa-clipboard-list', color: 'green' },
                 { label: 'Audits', value: audits.length, icon: 'fa-circle-check', color: 'purple' },
@@ -2014,6 +2066,7 @@
             ];
 
             const recentDocs = [...docs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+            const recentSharedFiles = [...sharedFiles].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)).slice(0, 5);
             const recentIncidents = [...incidents].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
             let html = `
@@ -2035,6 +2088,10 @@
                     <button class="quick-action-btn" onclick="openModal('document')">
                         <i class="fas fa-upload color-blue"></i>
                         <span>Upload Document</span>
+                    </button>
+                    <button class="quick-action-btn" onclick="openModal('sharedfile')">
+                        <i class="fas fa-link color-purple"></i>
+                        <span>Share File Link</span>
                     </button>
                     <button class="quick-action-btn" onclick="openModal('incident')">
                         <i class="fas fa-bolt color-red"></i>
@@ -2073,6 +2130,33 @@
                                         </div>
                                     </div>
                                     <span class="item-status ${doc.status}">${doc.status}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3><i class="fas fa-link" style="color:var(--secondary);margin-right:8px;"></i>Shared File Links</h3>
+                            <a class="view-all" onclick="navigateTo('sharedfiles')">View All →</a>
+                        </div>
+                        <div class="section-body">
+                            ${recentSharedFiles.length === 0 ? `
+                                <div class="empty-state">
+                                    <i class="fas fa-link"></i>
+                                    <h4>No shared links yet</h4>
+                                    <p>Managers can paste and share file links with selected users</p>
+                                </div>
+                            ` : recentSharedFiles.map(file => `
+                                <div class="list-item">
+                                    <div class="item-left">
+                                        <div class="item-icon doc"><i class="fas fa-link"></i></div>
+                                        <div class="item-text">
+                                            <div class="title">${file.title}</div>
+                                            <div class="meta">${getTypeLabel(file.type || file.category)} • ${formatDate(file.createdAt || file.date)} • ${getSharedRecipientsText(file)}</div>
+                                        </div>
+                                    </div>
+                                    ${getFileLink(file) ? `<a class="item-status approved" href="${getFileLink(file)}" target="_blank">Open</a>` : `<span class="item-status draft">No link</span>`}
                                 </div>
                             `).join('')}
                         </div>
@@ -2210,6 +2294,84 @@
 
             filterCategory.addEventListener('change', applyFilters);
             filterStatus.addEventListener('change', applyFilters);
+            searchInput.addEventListener('input', applyFilters);
+        }
+
+
+        // ================================================================
+        // SHARED FILES PAGE
+        // ================================================================
+
+        function renderSharedFiles(container) {
+            const files = state.data.sharedfiles || [];
+            const canManage = isManagerUser();
+            let html = `
+                <div class="filter-bar">
+                    <select id="sharedTypeFilter">
+                        <option value="">All File Types</option>
+                        <option value="incident_report">Incident Report</option>
+                        <option value="inspection_report">Inspection Report</option>
+                        <option value="audit_file">Audit File</option>
+                        <option value="training_file">Training File</option>
+                        <option value="policy">Policy / Procedure</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <input type="text" id="sharedSearch" placeholder="Search shared files..." />
+                    ${canManage ? `<button class="btn-primary-sm" onclick="openModal('sharedfile')"><i class="fas fa-plus"></i> Add Shared Link</button>` : ''}
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Shared To</th>
+                                <th>Added</th>
+                                <th>Link</th>
+                                ${canManage ? '<th style="text-align:right;">Actions</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody id="sharedTableBody">
+                            ${files.length === 0 ? `
+                                <tr><td colspan="${canManage ? 6 : 5}" style="text-align:center;padding:40px;color:var(--gray-500);">
+                                    <i class="fas fa-link" style="font-size:32px;display:block;margin-bottom:8px;"></i>
+                                    No shared file links found.
+                                </td></tr>
+                            ` : files.map(file => `
+                                <tr>
+                                    <td><strong>${file.title || '-'}</strong><div style="font-size:12px;color:var(--gray-500);">${file.description || ''}</div></td>
+                                    <td><span class="item-status draft" style="background:var(--gray-100);color:var(--gray-600);">${getTypeLabel(file.type || file.category || 'other')}</span></td>
+                                    <td>${getSharedRecipientsText(file)}</td>
+                                    <td>${formatDate(file.createdAt || file.date)}</td>
+                                    <td>${getFileLink(file) ? `<a href="${getFileLink(file)}" target="_blank">Open File</a>` : '-'}</td>
+                                    ${canManage ? `<td style="text-align:right;"><div class="table-actions" style="justify-content:flex-end;">
+                                        <button title="View" onclick="viewItem('sharedfiles','${file.id}')"><i class="fas fa-eye"></i></button>
+                                        <button title="Edit" onclick="editItem('sharedfiles','${file.id}')"><i class="fas fa-pen"></i></button>
+                                        <button title="Delete" class="danger" onclick="deleteItem('sharedfiles','${file.id}')"><i class="fas fa-trash"></i></button>
+                                    </div></td>` : ''}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = html;
+            const typeFilter = container.querySelector('#sharedTypeFilter');
+            const searchInput = container.querySelector('#sharedSearch');
+            const applyFilters = debounce(() => {
+                const type = typeFilter.value.toLowerCase();
+                const search = searchInput.value.toLowerCase();
+                container.querySelectorAll('#sharedTableBody tr').forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    const typeText = row.querySelector('td:nth-child(2)')?.textContent?.toLowerCase() || '';
+                    let show = true;
+                    if (type && !typeText.includes(type.replace('_', ' ')) && !typeText.includes(type)) show = false;
+                    if (search && !text.includes(search)) show = false;
+                    row.style.display = show ? '' : 'none';
+                });
+            }, 300);
+            typeFilter.addEventListener('change', applyFilters);
             searchInput.addEventListener('input', applyFilters);
         }
 
@@ -2721,6 +2883,9 @@
 
             DOM.modalSubmitText.textContent = 'Save';
             DOM.modalSubmitSpinner.style.display = 'none';
+            submitBtn.style.display = '';
+            DOM.modalCancel.textContent = 'Cancel';
+            DOM.modalCancel.onclick = closeModal;
             submitBtn.disabled = false;
 
             let fields = '';
@@ -2812,6 +2977,89 @@
                             } else {
                                 showToast('Failed to upload document', 'error');
                             }
+                        }
+                        closeModal();
+                    };
+                    break;
+
+                case 'sharedfile':
+                    if (!isManagerUser()) { showToast('Only managers and administrators can add or edit shared links', 'error'); return; }
+                    title.textContent = data ? 'Edit Shared File Link' : 'Add Shared File Link';
+                    fields = `
+                        <div class="form-group">
+                            <label>File Title *</label>
+                            <input type="text" id="sharedTitle" value="${data?.title || ''}" placeholder="Example: Incident Report - Site A" />
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>File Type</label>
+                                <select id="sharedType">
+                                    <option value="incident_report" ${data?.type === 'incident_report' || !data ? 'selected' : ''}>Incident Report</option>
+                                    <option value="inspection_report" ${data?.type === 'inspection_report' ? 'selected' : ''}>Inspection Report</option>
+                                    <option value="audit_file" ${data?.type === 'audit_file' ? 'selected' : ''}>Audit File</option>
+                                    <option value="training_file" ${data?.type === 'training_file' ? 'selected' : ''}>Training File</option>
+                                    <option value="policy" ${data?.type === 'policy' ? 'selected' : ''}>Policy / Procedure</option>
+                                    <option value="other" ${data?.type === 'other' ? 'selected' : ''}>Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="sharedStatus">
+                                    <option value="active" ${data?.status === 'active' || !data ? 'selected' : ''}>Active</option>
+                                    <option value="review" ${data?.status === 'review' ? 'selected' : ''}>Review</option>
+                                    <option value="archived" ${data?.status === 'archived' ? 'selected' : ''}>Archived</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Paste File Link *</label>
+                            <input type="url" id="sharedLinkUrl" value="${data?.linkUrl || data?.fileUrl || ''}" placeholder="https://drive.google.com/... or any report link" />
+                        </div>
+                        <div class="form-group">
+                            <label>Choose users who can view this link</label>
+                            <select id="sharedUsers" multiple size="6" style="min-height:140px;">
+                                <option value="*" ${normalizeEmailList(data?.sharedWithEmails || '').includes('*') ? 'selected' : ''}>All users</option>
+                                ${getUserOptions(data?.sharedWithEmails || '')}
+                            </select>
+                            <small style="color:var(--gray-500);">Hold Ctrl on Windows to select more than one user. Only selected users will see this file.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Extra emails (optional)</label>
+                            <textarea id="sharedExtraEmails" placeholder="Paste additional emails separated by commas">${(data?.sharedExtraEmails || '')}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Description / Notes</label>
+                            <textarea id="sharedDescription" placeholder="What is this file for?">${data?.description || ''}</textarea>
+                        </div>
+                    `;
+                    callback = async () => {
+                        const titleVal = document.getElementById('sharedTitle').value.trim();
+                        const linkUrl = document.getElementById('sharedLinkUrl').value.trim();
+                        if (!titleVal) { showToast('Please enter a file title', 'error'); return; }
+                        if (!linkUrl) { showToast('Please paste a file link', 'error'); return; }
+                        const selected = Array.from(document.getElementById('sharedUsers').selectedOptions).map(o => o.value);
+                        const extra = normalizeEmailList(document.getElementById('sharedExtraEmails').value);
+                        const allShared = [...new Set([...selected, ...extra])];
+                        if (!allShared.length) { showToast('Please choose at least one user or All users', 'error'); return; }
+                        const sharedData = {
+                            title: titleVal,
+                            type: document.getElementById('sharedType').value,
+                            category: document.getElementById('sharedType').value,
+                            status: document.getElementById('sharedStatus').value,
+                            linkUrl: linkUrl,
+                            fileUrl: linkUrl,
+                            sharedWithEmails: allShared.join(','),
+                            sharedExtraEmails: extra.join(','),
+                            description: document.getElementById('sharedDescription').value,
+                            uploadedBy: state.user?.name || state.user?.email || 'Manager',
+                            createdByEmail: state.user?.email || ''
+                        };
+                        const result = data ? await apiRequest('update', 'sharedfiles', sharedData, data.id) : await apiRequest('post', 'sharedfiles', sharedData);
+                        if (result.success !== false) {
+                            showToast('Shared file link saved!', 'success');
+                            loadAllData();
+                        } else {
+                            showToast('Failed to save shared file link', 'error');
                         }
                         closeModal();
                     };
@@ -3187,6 +3435,7 @@
             }
             const typeMap = {
                 'documents': 'document',
+                'sharedfiles': 'sharedfile',
                 'incidents': 'incident',
                 'inspections': 'inspection',
                 'audits': 'audit',
@@ -3307,13 +3556,14 @@
                 if (confirm('Really? All SHEQ data will be permanently deleted.')) {
                     state.data = {
                         documents: [],
+                        sharedfiles: [],
                         incidents: [],
                         inspections: [],
                         audits: [],
                         training: [],
                     };
                     // Also clear mock data
-                    const mockDataKeys = ['documents', 'incidents', 'inspections', 'audits', 'training'];
+                    const mockDataKeys = ['documents', 'sharedfiles', 'incidents', 'inspections', 'audits', 'training'];
                     mockDataKeys.forEach(key => MOCK_DATA[key] = []);
                     updateBadges();
                     renderPage(state.currentPage);
@@ -3385,6 +3635,7 @@
                 if (query) {
                     const allItems = [
                         ...(state.data.documents || []).map(d => ({ ...d, _type: 'document' })),
+                        ...(state.data.sharedfiles || []).map(d => ({ ...d, _type: 'shared file' })),
                         ...(state.data.incidents || []).map(d => ({ ...d, _type: 'incident' })),
                     ];
                     const results = allItems.filter(item =>
@@ -3414,7 +3665,7 @@
 
         window.addEventListener('hashchange', () => {
             const page = window.location.hash.replace('#', '') || 'dashboard';
-            if (['dashboard', 'documents', 'incidents', 'inspections', 'audits', 'training', 'settings'].includes(page)) {
+            if (['dashboard', 'documents', 'sharedfiles', 'incidents', 'inspections', 'audits', 'training', 'settings'].includes(page)) {
                 renderPage(page);
             }
         });
@@ -3435,7 +3686,7 @@
                 DOM.appContainer.style.display = 'flex';
                 loadAllData();
                 const page = window.location.hash.replace('#', '') || 'dashboard';
-                if (['dashboard', 'documents', 'incidents', 'inspections', 'audits', 'training', 'settings'].includes(page)) {
+                if (['dashboard', 'documents', 'sharedfiles', 'incidents', 'inspections', 'audits', 'training', 'settings'].includes(page)) {
                     renderPage(page);
                 } else {
                     renderPage('dashboard');
